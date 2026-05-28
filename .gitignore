@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+.env
+.env.local
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+npm-debug.log*
+*.tsbuildinfo
