@@ -34,7 +34,7 @@ describe('platform adapters', () => {
     );
   });
 
-  it('reports validation warnings for platform-specific limits', () => {
+  it('reports validation warnings for platform-specific limits in Chinese', () => {
     const warnings = validatePlatformDraft('xiaohongshu', {
       platformId: 'xiaohongshu',
       title: 'x'.repeat(30),
@@ -44,7 +44,7 @@ describe('platform adapters', () => {
       status: 'ready',
     });
 
-    expect(warnings).toContain('Title should be 20 characters or less.');
-    expect(warnings).toContain('Use no more than 6 hashtags.');
+    expect(warnings).toContain('标题不能超过 20 个字符');
+    expect(warnings).toContain('话题标签不能超过 6 个');
   });
 });

@@ -6,7 +6,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     displayName: '微信公众号',
     description: '适合长文排版, 摘要和封面草稿链路',
     tone: '专业, 清晰, 有结构',
-    capabilities: ['HTML long-form', 'summary', 'draft publishing hook'],
+    capabilities: ['HTML 长文', '摘要生成', '草稿发布预留接口'],
     publishModes: ['officialApi', 'simulated', 'exportOnly'],
     limits: { titleMax: 64, bodyMax: 20000, hashtagMax: 0 },
     exportFormat: 'html',
@@ -16,7 +16,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     displayName: '知乎',
     description: '适合观点型文章, 强调问题意识和论证',
     tone: '理性, 有判断, 注重可信度',
-    capabilities: ['markdown article', 'reference-friendly copy', 'browser assist hook'],
+    capabilities: ['Markdown 文章', '引用友好文案', '浏览器辅助预留接口'],
     publishModes: ['browserAssist', 'simulated', 'exportOnly'],
     limits: { titleMax: 80, bodyMax: 30000, hashtagMax: 5 },
     exportFormat: 'markdown',
@@ -26,7 +26,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     displayName: 'B 站',
     description: '适合视频简介, 分区标签和互动引导',
     tone: '轻松, 直接, 有互动感',
-    capabilities: ['video description', 'tags', 'cover checklist', 'official API hook'],
+    capabilities: ['视频简介', '标签建议', '官方接口预留接口'],
     publishModes: ['officialApi', 'browserAssist', 'simulated', 'exportOnly'],
     limits: { titleMax: 80, bodyMax: 2000, hashtagMax: 10 },
     exportFormat: 'plain',
@@ -36,7 +36,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     displayName: '小红书',
     description: '适合短标题, 种草口吻和话题标签',
     tone: '自然, 口语化, 强调收获感',
-    capabilities: ['short note', 'hashtags', 'browser assist hook'],
+    capabilities: ['短笔记', '话题标签', '浏览器辅助预留接口'],
     publishModes: ['browserAssist', 'simulated', 'exportOnly'],
     limits: { titleMax: 20, bodyMax: 1000, hashtagMax: 6 },
     exportFormat: 'plain',
@@ -48,7 +48,7 @@ const PLATFORM_BY_ID = new Map(PLATFORM_ADAPTERS.map((adapter) => [adapter.id, a
 export function getPlatformAdapter(platformId: PlatformId): PlatformAdapter {
   const adapter = PLATFORM_BY_ID.get(platformId);
   if (!adapter) {
-    throw new Error(`Unknown platform: ${platformId}`);
+    throw new Error(`未知平台: ${platformId}`);
   }
   return adapter;
 }
@@ -71,7 +71,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       platformId: 'zhihu',
       title: clipText(title, 80),
       summary,
-      body: `# ${clipText(title, 80)}\n\n${plainBody}\n\n---\n\n发布前检查: 补充来源, 调整小标题, 确认评论区引导。`,
+      body: `# ${clipText(title, 80)}\n\n${plainBody}\n\n---\n\n发布前检查: 补充来源, 调整小标题, 确认评论区引导`,
       hashtags: ['内容创作', '效率工具'],
       status: 'needs-review',
     }),
@@ -79,7 +79,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       platformId: 'bilibili',
       title: clipText(title, 80),
       summary,
-      body: `${summary}\n\n本期要点:\n${createBulletList(plainBody)}\n\n欢迎在评论区补充你的发布经验。`,
+      body: `${summary}\n\n本期要点:\n${createBulletList(plainBody)}\n\n欢迎在评论区补充你的发布经验`,
       hashtags: ['内容创作', '效率工具', '自媒体'],
       status: 'needs-review',
     }),
@@ -87,7 +87,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       platformId: 'xiaohongshu',
       title: clipText(title, 20),
       summary,
-      body: `${summary}\n\n${clipText(plainBody, 620)}\n\n适合想把一篇内容同步到多个平台的创作者。`,
+      body: `${summary}\n\n${clipText(plainBody, 620)}\n\n适合想把一篇内容同步到多个平台的创作者`,
       hashtags: ['内容创作', '自媒体', '效率工具', '创作者工具'],
       status: 'needs-review',
     }),
@@ -99,23 +99,23 @@ export function validatePlatformDraft(platformId: PlatformId, draft: PlatformDra
   const warnings: string[] = [];
 
   if (!draft.title.trim()) {
-    warnings.push('Title is required.');
+    warnings.push('标题不能为空');
   }
 
   if (draft.title.length > adapter.limits.titleMax) {
-    warnings.push(`Title should be ${adapter.limits.titleMax} characters or less.`);
+    warnings.push(`标题不能超过 ${adapter.limits.titleMax} 个字符`);
   }
 
   if (adapter.limits.bodyMax && draft.body.length > adapter.limits.bodyMax) {
-    warnings.push(`Body should be ${adapter.limits.bodyMax} characters or less.`);
+    warnings.push(`正文不能超过 ${adapter.limits.bodyMax} 个字符`);
   }
 
   if (draft.hashtags.length > adapter.limits.hashtagMax) {
-    warnings.push(`Use no more than ${adapter.limits.hashtagMax} hashtags.`);
+    warnings.push(`话题标签不能超过 ${adapter.limits.hashtagMax} 个`);
   }
 
   if (platformId === 'wechat' && !draft.summary.trim()) {
-    warnings.push('Summary is recommended for WeChat drafts.');
+    warnings.push('微信公众号建议填写摘要');
   }
 
   return warnings;
@@ -176,7 +176,7 @@ function stripMarkdown(value: string): string {
 
 function createSummary(value: string): string {
   const compact = value.replace(/\s+/g, ' ').trim();
-  return clipText(compact || '这是一篇待适配的创作者内容。', 120);
+  return clipText(compact || '这是一篇待适配的创作者内容', 120);
 }
 
 function createBulletList(value: string): string {

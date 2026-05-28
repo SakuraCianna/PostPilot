@@ -77,7 +77,7 @@ export function createSessionRepository(db: PostPilotDatabase) {
 
       const saved = this.getSession(id);
       if (!saved) {
-        throw new Error('Failed to load saved session.');
+        throw new Error('保存后读取历史记录失败');
       }
       return saved;
     },

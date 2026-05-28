@@ -14,6 +14,7 @@ describe('deepseek adaptation service', () => {
 
     expect(result.model).toBe(DEEPSEEK_MODEL);
     expect(result.modelStatus).toBe('local-fallback');
+    expect(result.modelMessage).toBe('未配置 DeepSeek API Key, 已使用本地规则生成平台版本');
     expect(result.drafts).toHaveLength(4);
   });
 

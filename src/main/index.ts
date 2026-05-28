@@ -37,7 +37,7 @@ function createWindow(): void {
     backgroundColor: '#ffffff',
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -64,7 +64,7 @@ ipcMain.handle('sessions:get', (_event, id: string) => sessions.getSession(id));
 ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptationsInput) => {
   const body = input.body.trim();
   if (!body) {
-    throw new Error('Content body is required.');
+    throw new Error('正文不能为空');
   }
 
   const title = normalizeTitle(input.title, body);
@@ -90,12 +90,12 @@ ipcMain.handle(
   (_event, input: { sessionId: string; platformId: PlatformId }) => {
     const session = sessions.getSession(input.sessionId);
     if (!session) {
-      throw new Error('Session not found.');
+      throw new Error('未找到对应历史记录');
     }
 
     const adapter = PLATFORM_ADAPTERS.find((item) => item.id === input.platformId);
     if (!adapter) {
-      throw new Error('Platform not found.');
+      throw new Error('未找到对应平台');
     }
 
     const event = sessions.recordPublishEvent({
@@ -103,7 +103,7 @@ ipcMain.handle(
       platformId: input.platformId,
       mode: 'simulated',
       status: 'success',
-      message: `Simulated publish completed for ${adapter.displayName}.`,
+      message: `${adapter.displayName} 模拟发布已完成`,
     });
 
     return {

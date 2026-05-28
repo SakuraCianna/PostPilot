@@ -182,7 +182,7 @@ export function App() {
           <div className="brand-mark">P</div>
           <div>
             <strong>PostPilot</strong>
-            <span>Creator publishing</span>
+            <span>创作者发布助手</span>
           </div>
         </div>
 
@@ -248,7 +248,7 @@ export function App() {
             }}
           />
           <div className="editor-actions">
-            <span>{body.length} chars</span>
+            <span>{body.length} 字符</span>
             <button
               className="primary-button"
               type="button"
@@ -285,7 +285,7 @@ export function App() {
               </div>
               <div className={`status ${selectedDraft.status}`}>
                 <Check size={14} />
-                {selectedDraft.status === 'ready' ? 'Ready' : 'Review'}
+                {selectedDraft.status === 'ready' ? '可发布' : '待检查'}
               </div>
             </div>
 
