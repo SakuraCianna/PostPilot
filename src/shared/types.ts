@@ -132,11 +132,6 @@ export interface GenerateAdaptationsInput extends CanonicalContent {
   sessionId?: string;
 }
 
-export interface UpdateDraftInput {
-  sessionId: string;
-  draft: PlatformDraft;
-}
-
 export interface BootstrapPayload {
   model: DeepSeekModel;
   platforms: PlatformAdapter[];

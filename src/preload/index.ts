@@ -13,7 +13,6 @@ import type {
   SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
-  UpdateDraftInput,
   VerifyPlatformAccountInput,
   VerifyPlatformAccountResult,
 } from '../shared/types';
@@ -33,8 +32,6 @@ const api = {
   verifyAccountConfig: (
     input: VerifyPlatformAccountInput,
   ): Promise<VerifyPlatformAccountResult> => ipcRenderer.invoke('accounts:verify', input),
-  updateDraft: (input: UpdateDraftInput): Promise<SavedSession> =>
-    ipcRenderer.invoke('drafts:update', input),
   runContentReview: (input: RunContentReviewInput): Promise<SavedSession> =>
     ipcRenderer.invoke('review:run', input),
   rewriteContentRisks: (input: RunContentRewriteInput): Promise<SavedSession> =>

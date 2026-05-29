@@ -12,18 +12,18 @@ const draft: PlatformDraft = {
 };
 
 describe('publishers', () => {
-  it('blocks publishing before manual review is approved', async () => {
+  it('allows publishing generated drafts without manual review gate', async () => {
     const task = await createPublishTask({
       draft: {
         ...draft,
         status: 'needs-review',
       },
-      mode: 'officialApi',
+      mode: 'simulated',
     });
 
-    expect(task.status).toBe('failed');
-    expect(task.event.status).toBe('failed');
-    expect(task.event.message).toBe('请先完成手动审核');
+    expect(task.status).toBe('success');
+    expect(task.event.status).toBe('success');
+    expect(task.event.message).toBe('微信公众号 模拟发布已完成');
   });
 
   it('blocks publishing when content review has legal risks', async () => {

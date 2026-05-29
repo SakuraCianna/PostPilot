@@ -12,7 +12,6 @@ import type {
   SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
-  UpdateDraftInput,
   VerifyPlatformAccountInput,
   VerifyPlatformAccountResult,
 } from '../shared/types';
@@ -29,7 +28,6 @@ declare global {
       saveAccountConfig(input: SavePlatformAccountInput): Promise<PlatformAccountConfig>;
       deleteAccountConfig(platformId: string): Promise<PlatformAccountConfig[]>;
       verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
-      updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
       runContentReview(input: RunContentReviewInput): Promise<SavedSession>;
       rewriteContentRisks(input: RunContentRewriteInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;

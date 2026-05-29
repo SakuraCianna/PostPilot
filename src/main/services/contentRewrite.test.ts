@@ -53,7 +53,7 @@ const review: ContentReviewResult = {
 };
 
 describe('content rewrite service', () => {
-  it('rewrites risky snippets locally and requires manual review again', async () => {
+  it('rewrites risky snippets locally and keeps drafts publishable after AI review reruns', async () => {
     const result = await rewriteContentRisks({
       content: {
         title: '收益承诺',
@@ -68,7 +68,7 @@ describe('content rewrite service', () => {
     expect(result.modelStatus).toBe('local-fallback');
     expect(result.message).toContain('本地规则');
     expect(result.drafts).toHaveLength(2);
-    expect(result.drafts.every((draft) => draft.status === 'needs-review')).toBe(true);
+    expect(result.drafts.every((draft) => draft.status === 'ready')).toBe(true);
     expect(result.drafts[0]?.body).not.toContain('保证收益');
     expect(result.drafts[0]?.body).not.toContain('低端用户');
     expect(result.drafts[1]?.body).not.toContain('保证收益');
@@ -123,9 +123,9 @@ describe('content rewrite service', () => {
     expect(result.drafts[0]).toMatchObject({
       platformId: 'wechat',
       title: '收益提示',
-      status: 'needs-review',
+      status: 'ready',
     });
     expect(result.drafts[1]?.platformId).toBe('zhihu');
-    expect(result.drafts[1]?.status).toBe('needs-review');
+    expect(result.drafts[1]?.status).toBe('ready');
   });
 });

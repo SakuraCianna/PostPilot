@@ -35,18 +35,6 @@ export async function createPublishTask(
     };
   }
 
-  if (input.mode !== 'exportOnly' && input.draft.status !== 'ready') {
-    return {
-      status: 'failed',
-      event: {
-        platformId: input.draft.platformId,
-        mode: input.mode,
-        status: 'failed',
-        message: '请先完成手动审核',
-      },
-    };
-  }
-
   if (input.mode !== 'exportOnly' && input.contentReview?.status === 'blocked') {
     return {
       status: 'failed',
@@ -200,7 +188,7 @@ function createBrowserAssistScript(payload: {
   });
 
   console.table(results);
-  alert('PostPilot 自动填充已尝试执行, 请人工检查标题, 正文, 摘要和标签后再发布');
+  alert('PostPilot 自动填充已尝试执行, 请检查标题, 正文, 摘要和标签后再发布');
 })();`;
 }
 
@@ -237,7 +225,7 @@ function createBrowserAssistHtml(
 <body>
   <main>
     <h1>${escapeHtml(payload.platformName)} 浏览器辅助发布</h1>
-    <p>先打开目标平台并登录, 再把下方自动填充脚本粘贴到浏览器控制台执行。执行后仍需要人工检查页面内容和平台提示。</p>
+    <p>先打开目标平台并登录, 再把下方自动填充脚本粘贴到浏览器控制台执行。执行后仍需要检查页面内容和平台提示。</p>
     <section>
       <h2>目标入口</h2>
       <a href="${escapeAttribute(payload.targetUrl)}" target="_blank" rel="noreferrer">${escapeHtml(payload.targetUrl)}</a>

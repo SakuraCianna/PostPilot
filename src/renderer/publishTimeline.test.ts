@@ -68,7 +68,7 @@ describe('publish timeline helpers', () => {
     expect(timeline.summary.failed).toBe(1);
   });
 
-  it('blocks publish tasks when draft review is still pending', () => {
+  it('treats generated drafts as ready without manual review', () => {
     const timeline = createPublishTimeline({
       session: {
         ...session,
@@ -82,11 +82,11 @@ describe('publish timeline helpers', () => {
     const zhihu = timeline.items.find((item) => item.platformId === 'zhihu');
 
     expect(zhihu).toMatchObject({
-      status: 'blocked',
+      status: 'ready',
       canRetry: false,
-      message: '等待人工审核',
+      message: '等待发布任务',
     });
-    expect(timeline.summary.blocked).toBe(1);
+    expect(timeline.summary.ready).toBe(4);
   });
 
   it('summarizes success progress across all platforms', () => {

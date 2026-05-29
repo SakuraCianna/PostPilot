@@ -65,7 +65,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       summary,
       body: toWechatHtml(title, plainBody),
       hashtags: [],
-      status: 'needs-review',
+      status: 'ready',
     }),
     withWarnings({
       platformId: 'zhihu',
@@ -73,7 +73,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       summary,
       body: `# ${clipText(title, 80)}\n\n${plainBody}\n\n---\n\n发布前检查: 补充来源, 调整小标题, 确认评论区引导`,
       hashtags: ['内容创作', '效率工具'],
-      status: 'needs-review',
+      status: 'ready',
     }),
     withWarnings({
       platformId: 'bilibili',
@@ -81,7 +81,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       summary,
       body: `${summary}\n\n本期要点:\n${createBulletList(plainBody)}\n\n欢迎在评论区补充你的发布经验`,
       hashtags: ['内容创作', '效率工具', '自媒体'],
-      status: 'needs-review',
+      status: 'ready',
     }),
     withWarnings({
       platformId: 'xiaohongshu',
@@ -89,7 +89,7 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       summary,
       body: `${summary}\n\n${clipText(plainBody, 620)}\n\n适合想把一篇内容同步到多个平台的创作者`,
       hashtags: ['内容创作', '自媒体', '效率工具', '创作者工具'],
-      status: 'needs-review',
+      status: 'ready',
     }),
   ];
 }

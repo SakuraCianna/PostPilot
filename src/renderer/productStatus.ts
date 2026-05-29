@@ -8,7 +8,7 @@ import type {
 export type ProductStatusState = 'done' | 'blocked' | 'failed' | 'idle' | 'warning';
 
 export interface ReadinessStep {
-  id: 'review' | 'content' | 'account' | 'receipt';
+  id: 'draft' | 'content' | 'account' | 'receipt';
   label: string;
   state: ProductStatusState;
   text: string;
@@ -22,10 +22,10 @@ export function createReadinessSteps(input: {
 }): ReadinessStep[] {
   return [
     {
-      id: 'review',
-      label: '审核',
-      state: input.draft.status === 'ready' ? 'done' : 'blocked',
-      text: input.draft.status === 'ready' ? '已审核' : '待审核',
+      id: 'draft',
+      label: '草稿',
+      state: input.draft.warnings?.length ? 'warning' : 'done',
+      text: input.draft.warnings?.length ? '需修正' : '已生成',
     },
     {
       id: 'content',

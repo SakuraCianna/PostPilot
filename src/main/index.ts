@@ -11,7 +11,6 @@ import { rewriteContentRisks } from './services/contentRewrite';
 import { generateAdaptations } from './services/deepseek';
 import { verifyOfficialAccount } from './services/officialConnectors';
 import { createPublishTask } from './services/publishers';
-import { replacePlatformDraft } from '../shared/draftUpdates';
 import {
   createLocalDrafts,
   PLATFORM_ADAPTERS,
@@ -25,7 +24,6 @@ import {
   type RunContentRewriteInput,
   type SaveModelSettingsInput,
   type SavePlatformAccountInput,
-  type UpdateDraftInput,
   type VerifyPlatformAccountInput,
 } from '../shared/types';
 import { isBuiltInPlatformId } from '../shared/platformAccounts';
@@ -120,23 +118,6 @@ ipcMain.handle('accounts:verify', async (_event, input: VerifyPlatformAccountInp
 
   accounts.updateAuthResult(result);
   return result;
-});
-
-ipcMain.handle('drafts:update', (_event, input: UpdateDraftInput) => {
-  const session = sessions.getSession(input.sessionId);
-  if (!session) {
-    throw new Error('未找到对应历史记录');
-  }
-
-  return sessions.saveSession({
-    id: session.id,
-    title: session.title,
-    sourceBody: session.sourceBody,
-    drafts: replacePlatformDraft(session.drafts, input.draft),
-    model: session.model,
-    modelStatus: session.modelStatus,
-    modelMessage: session.modelMessage,
-  });
 });
 
 ipcMain.handle('review:run', async (_event, input: RunContentReviewInput) => {

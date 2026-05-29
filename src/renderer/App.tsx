@@ -7,7 +7,6 @@ import {
   ExternalLink,
   History,
   Loader2,
-  PencilLine,
   Play,
   Plus,
   RotateCcw,
@@ -23,7 +22,6 @@ import {
 import DOMPurify from 'dompurify';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import {
-  applyDraftValidation,
   createLocalDrafts,
   formatDraftForClipboard,
   PLATFORM_ADAPTERS,
@@ -104,7 +102,6 @@ export function App() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isReviewingContent, setIsReviewingContent] = useState(false);
   const [isRewritingContent, setIsRewritingContent] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
   const [isSavingAccount, setIsSavingAccount] = useState<string | null>(null);
   const [isVerifyingAccount, setIsVerifyingAccount] = useState<string | null>(null);
@@ -122,8 +119,6 @@ export function App() {
   const [customAccountFields, setCustomAccountFields] = useState<
     Partial<Record<string, Array<{ id: string; key: string; value: string }>>>
   >({});
-  const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
-  const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
   const [notice, setNotice] = useState('');
   const [previewWidth, setPreviewWidth] = useState(() => getDefaultPreviewWidth());
 
@@ -191,9 +186,7 @@ export function App() {
     );
   }, [contentReview, selectedPlatform]);
 
-  const editableDraft = selectedDraft
-    ? draftEdits[selectedDraft.platformId] ?? selectedDraft
-    : null;
+  const editableDraft = selectedDraft;
 
   const draftPreviewHtml = useMemo(() => {
     if (!editableDraft || !selectedAdapter) {
@@ -218,16 +211,13 @@ export function App() {
     });
   }, [contentReview, editableDraft, selectedAccountConfig, selectedPublishEvents]);
 
-  const approvedDraftCount = useMemo(
+  const generatedDraftCount = useMemo(
     () =>
-      previewDrafts.filter((draft) => {
-        const edited = draftEdits[draft.platformId] ?? draft;
-        return edited.status === 'ready';
-      }).length,
-    [draftEdits, previewDrafts],
+      previewDrafts.filter((draft) => draft.status === 'ready').length,
+    [previewDrafts],
   );
 
-  const allDraftsReady = approvedDraftCount === PLATFORM_ADAPTERS.length;
+  const allPlatformDraftsGenerated = previewDrafts.length === PLATFORM_ADAPTERS.length;
 
   const publishTimeline = useMemo(
     () =>
@@ -254,20 +244,11 @@ export function App() {
     contentReview?.issues.filter((issue) => issue.kind === 'values').length ?? 0;
   const contentReviewHasIssues = (contentReview?.issues.length ?? 0) > 0;
   const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
-  const canRunPublishAll = allDraftsReady && contentReviewAllowsPublish && publishReadiness.canRunPublishAll;
+  const canRunPublishAll =
+    allPlatformDraftsGenerated && contentReviewAllowsPublish && publishReadiness.canRunPublishAll;
   const shellStyle = {
     '--preview-width': `${previewWidth}px`,
   } as CSSProperties;
-
-  useEffect(() => {
-    if (!selectedDraft) {
-      return;
-    }
-    setDraftEdits((current) => ({
-      ...current,
-      [selectedDraft.platformId]: selectedDraft,
-    }));
-  }, [currentSession?.id, selectedDraft]);
 
   async function refreshSessions() {
     setSessions(await window.postPilot.listSessions());
@@ -290,8 +271,6 @@ export function App() {
       setCurrentSession(saved);
       setTitle(saved.title);
       setBody(saved.sourceBody);
-      setDraftEdits({});
-      setDraftViewMode('preview');
       await refreshSessions();
       setNotice(saved.modelMessage);
     } catch (error) {
@@ -311,12 +290,10 @@ export function App() {
     setNotice('正在进行内容法律和价值观审查');
 
     try {
-      const sessionForReview = await persistChangedDrafts(currentSession);
       const reviewed = await window.postPilot.runContentReview({
-        sessionId: sessionForReview.id,
+        sessionId: currentSession.id,
       });
       setCurrentSession(reviewed);
-      setDraftEdits({});
       await refreshSessions();
       setNotice(reviewed.contentReview?.message ?? '内容审查已完成');
     } catch (error) {
@@ -336,19 +313,16 @@ export function App() {
     setNotice('正在优化风险表达');
 
     try {
-      const sessionForRewrite = await persistChangedDrafts(currentSession);
-      if (!sessionForRewrite.contentReview?.issues.length) {
+      if (!currentSession.contentReview?.issues.length) {
         throw new Error('请先完成内容审查');
       }
 
       const rewritten = await window.postPilot.rewriteContentRisks({
-        sessionId: sessionForRewrite.id,
+        sessionId: currentSession.id,
       });
       setCurrentSession(rewritten);
-      setDraftEdits({});
-      setDraftViewMode('preview');
       await refreshSessions();
-      setNotice('风险表达已优化, 请重新审核平台草稿并再次进行内容审查');
+      setNotice('风险表达已优化, 请重新进行内容审查');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '风险表达优化失败');
     } finally {
@@ -366,9 +340,7 @@ export function App() {
     setCurrentSession(loaded);
     setTitle(loaded.title);
     setBody(loaded.sourceBody);
-    setDraftEdits({});
     setSelectedPlatform(loaded.drafts[0]?.platformId ?? 'wechat');
-    setDraftViewMode('preview');
     setNotice(loaded.modelMessage);
   }
 
@@ -376,9 +348,7 @@ export function App() {
     setCurrentSession(null);
     setTitle('');
     setBody('');
-    setDraftEdits({});
     setSelectedPlatform('wechat');
-    setDraftViewMode('preview');
     setNotice('已创建新的本地草稿');
   }
 
@@ -422,9 +392,8 @@ export function App() {
 
     setIsPublishing(true);
     try {
-      const sessionForPublish = await persistChangedDrafts(currentSession);
       const result = await window.postPilot.runPublishTask({
-        sessionId: sessionForPublish.id,
+        sessionId: currentSession.id,
         platformId,
         mode,
       });
@@ -455,9 +424,8 @@ export function App() {
 
     setIsPublishing(true);
     try {
-      const sessionForPublish = await persistChangedDrafts(currentSession);
-      let updated: SavedSession | null = sessionForPublish;
-      const publishableDrafts = sessionForPublish.drafts.filter((draft) =>
+      let updated: SavedSession | null = currentSession;
+      const publishableDrafts = currentSession.drafts.filter((draft) =>
         publishReadiness.publishablePlatformIds.includes(draft.platformId),
       );
       if (publishableDrafts.length === 0) {
@@ -466,7 +434,7 @@ export function App() {
 
       for (const draft of publishableDrafts) {
         const result = await window.postPilot.runPublishTask({
-          sessionId: sessionForPublish.id,
+          sessionId: currentSession.id,
           platformId: draft.platformId,
           mode: 'officialApi',
         });
@@ -638,127 +606,6 @@ export function App() {
       ...current,
       [platformId]: (current[platformId] ?? []).filter((field) => field.id !== id),
     }));
-  }
-
-  function updateDraftEdit(patch: Partial<PlatformDraft>, resetReview = true) {
-    if (!editableDraft) {
-      return;
-    }
-    const nextDraft = {
-      ...editableDraft,
-      ...patch,
-      status: patch.status === 'ready' || !resetReview ? patch.status ?? editableDraft.status : 'needs-review',
-    };
-    setDraftEdits((current) => ({
-      ...current,
-      [editableDraft.platformId]: applyDraftValidation(nextDraft),
-    }));
-    if (resetReview) {
-      setCurrentSession((current) =>
-        current?.contentReview ? { ...current, contentReview: undefined } : current,
-      );
-    }
-  }
-
-  async function handleApproveDraft() {
-    if (!editableDraft) {
-      return;
-    }
-    const approved = applyDraftValidation({
-      ...editableDraft,
-      status: 'ready',
-    });
-    if (approved.status !== 'ready') {
-      setNotice('请先修复平台草稿问题');
-      return;
-    }
-
-    setDraftEdits((current) => ({
-      ...current,
-      [approved.platformId]: approved,
-    }));
-
-    if (!currentSession) {
-      setNotice('审核已通过');
-      return;
-    }
-
-    setIsSavingDraft(true);
-    try {
-      const saved = await window.postPilot.updateDraft({
-        sessionId: currentSession.id,
-        draft: approved,
-      });
-      setCurrentSession(saved);
-      await refreshSessions();
-      setNotice(`${getPlatformName(approved.platformId)}审核已通过`);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '保存审核状态失败');
-    } finally {
-      setIsSavingDraft(false);
-    }
-  }
-
-  async function persistChangedDrafts(session: SavedSession): Promise<SavedSession> {
-    let latestSession = session;
-
-    for (const draft of Object.values(draftEdits)) {
-      if (!draft) {
-        continue;
-      }
-
-      const savedDraft = latestSession.drafts.find(
-        (item) => item.platformId === draft.platformId,
-      );
-      if (!savedDraft || areDraftsEqual(savedDraft, draft)) {
-        continue;
-      }
-
-      latestSession = await window.postPilot.updateDraft({
-        sessionId: latestSession.id,
-        draft,
-      });
-      setDraftEdits((current) => ({
-        ...current,
-        [draft.platformId]:
-          latestSession.drafts.find((item) => item.platformId === draft.platformId) ?? draft,
-      }));
-    }
-
-    if (latestSession !== session) {
-      setCurrentSession(latestSession);
-      await refreshSessions();
-    }
-
-    return latestSession;
-  }
-
-  async function handleSaveDraft() {
-    if (!currentSession || !editableDraft) {
-      setNotice('请先生成并保存一次平台版本');
-      return;
-    }
-
-    setIsSavingDraft(true);
-    try {
-      const saved = await window.postPilot.updateDraft({
-        sessionId: currentSession.id,
-        draft: editableDraft,
-      });
-      setCurrentSession(saved);
-      setDraftEdits((current) => ({
-        ...current,
-        [editableDraft.platformId]:
-          saved.drafts.find((draft) => draft.platformId === editableDraft.platformId) ??
-          editableDraft,
-      }));
-      await refreshSessions();
-      setNotice(`${getPlatformName(editableDraft.platformId)} 草稿修改已保存`);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '保存草稿修改失败');
-    } finally {
-      setIsSavingDraft(false);
-    }
   }
 
   function renderSettingsView() {
@@ -1200,11 +1047,10 @@ export function App() {
             onChange={(event) => {
               setTitle(event.target.value);
               setCurrentSession(null);
-              setDraftEdits({});
             }}
           />
           <div className="editor-meta">
-            <span>已审核 {approvedDraftCount}/{PLATFORM_ADAPTERS.length}</span>
+            <span>平台版本 {generatedDraftCount}/{PLATFORM_ADAPTERS.length}</span>
             <span>{currentSession ? '已保存' : '本地草稿'}</span>
           </div>
           <textarea
@@ -1214,7 +1060,6 @@ export function App() {
             onChange={(event) => {
               setBody(event.target.value);
               setCurrentSession(null);
-              setDraftEdits({});
             }}
           />
           <div className="editor-actions">
@@ -1272,23 +1117,18 @@ export function App() {
             <div className="draft-heading">
               <div>
                 <span>{getPlatformName(editableDraft.platformId)}</span>
-                <input
-                  className="draft-title-input"
-                  value={editableDraft.title}
-                  onChange={(event) => updateDraftEdit({ title: event.target.value })}
-                />
+                <h2 className="draft-title-text">{editableDraft.title}</h2>
               </div>
-              <div className={`status ${editableDraft.status}`}>
-                {editableDraft.status === 'ready' ? <Check size={14} /> : <X size={14} />}
-                {editableDraft.status === 'ready' ? '可发布' : '待审核'}
+              <div className={`status ${contentReview?.status ?? 'not-reviewed'}`}>
+                {contentReview?.status === 'passed' ? <Check size={14} /> : <X size={14} />}
+                {getContentReviewStatusText(contentReview?.status)}
               </div>
             </div>
 
-            <textarea
-              className="summary-input"
-              value={editableDraft.summary}
-              onChange={(event) => updateDraftEdit({ summary: event.target.value })}
-            />
+            <div className="draft-summary-readonly">
+              <span>平台摘要</span>
+              <p>{editableDraft.summary || '暂无摘要'}</p>
+            </div>
 
             {editableDraft.warnings && editableDraft.warnings.length > 0 ? (
               <div className="warnings">
@@ -1344,7 +1184,7 @@ export function App() {
                 <span className="values">价值观 {valuesIssueCount}</span>
               </div>
               {contentReviewHasIssues ? (
-                <p className="review-hint">优化后会回到待审核, 需要人工确认并重新审查</p>
+                <p className="review-hint">优化后需要重新进行 AI 审查</p>
               ) : null}
               {contentReview ? (
                 selectedReviewIssues.length > 0 ? (
@@ -1368,53 +1208,14 @@ export function App() {
               )}
             </section>
 
-            <div className="draft-view-switch" aria-label="草稿查看方式">
-              <button
-                className={draftViewMode === 'preview' ? 'active' : ''}
-                type="button"
-                aria-pressed={draftViewMode === 'preview'}
-                onClick={() => setDraftViewMode('preview')}
-              >
-                <Eye size={15} />
-                预览
-              </button>
-              <button
-                className={draftViewMode === 'edit' ? 'active' : ''}
-                type="button"
-                aria-pressed={draftViewMode === 'edit'}
-                onClick={() => setDraftViewMode('edit')}
-              >
-                <PencilLine size={15} />
-                编辑
-              </button>
+            <div className="draft-preview-heading">
+              <Eye size={15} />
+              <span>平台正文预览</span>
             </div>
-
-            {draftViewMode === 'edit' ? (
-              <textarea
-                className="draft-body-input"
-                value={editableDraft.body}
-                onChange={(event) => updateDraftEdit({ body: event.target.value })}
-              />
-            ) : (
               <article
                 className="draft-rendered-preview"
                 dangerouslySetInnerHTML={{ __html: draftPreviewHtml }}
               />
-            )}
-
-            <input
-              className="hashtags-input"
-              value={editableDraft.hashtags.join(', ')}
-              onChange={(event) =>
-                updateDraftEdit({
-                  hashtags: event.target.value
-                    .split(',')
-                    .map((tag) => tag.trim())
-                    .filter(Boolean),
-                })
-              }
-              placeholder="话题标签, 用英文逗号分隔"
-            />
 
             <div className="tags">
               {editableDraft.hashtags.map((tag) => (
@@ -1423,22 +1224,6 @@ export function App() {
             </div>
 
             <div className="preview-actions">
-              <button
-                type="button"
-                disabled={isSavingDraft || editableDraft.status === 'ready'}
-                onClick={() => void handleApproveDraft()}
-              >
-                {isSavingDraft ? <Loader2 className="spin" size={16} /> : <Check size={16} />}
-                审核通过
-              </button>
-              <button
-                type="button"
-                disabled={isSavingDraft}
-                onClick={() => void handleSaveDraft()}
-              >
-                {isSavingDraft ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-                保存修改
-              </button>
               <button type="button" onClick={() => void handleCopy(editableDraft)}>
                 <Clipboard size={16} />
                 复制
@@ -1455,7 +1240,7 @@ export function App() {
                     disabled={
                       isPublishing ||
                       (mode !== 'exportOnly' &&
-                        (editableDraft.status !== 'ready' || !contentReviewAllowsPublish))
+                        !contentReviewAllowsPublish)
                     }
                     onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
                   >
@@ -1626,7 +1411,7 @@ function getContentReviewStatusText(status?: ContentReviewStatus): string {
     return '已通过';
   }
   if (status === 'needs-attention') {
-    return '需人工确认';
+    return '需关注';
   }
   if (status === 'blocked') {
     return '已拦截';
@@ -1687,10 +1472,6 @@ function sanitizeDraftPreviewHtml(value: string): string {
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'style'],
     FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
   });
-}
-
-function areDraftsEqual(left: PlatformDraft, right: PlatformDraft): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function formatTime(value: string): string {

@@ -54,32 +54,32 @@ function createDraftsItem(
   session: SavedSession | null,
   adapterCount: number,
 ): PublishReadinessItem {
-  const readyCount = session?.drafts.filter((draft) => draft.status === 'ready').length ?? 0;
-  if (!session || readyCount === 0) {
+  const draftCount = session?.drafts.length ?? 0;
+  if (!session || draftCount === 0) {
     return {
       id: 'drafts',
-      label: '草稿审核',
+      label: '平台版本',
       state: 'blocked',
-      detail: '还没有可发布草稿',
-      action: '先生成并审核草稿',
+      detail: '还没有平台版本',
+      action: '先生成平台版本',
     };
   }
 
-  if (readyCount < adapterCount) {
+  if (draftCount < adapterCount) {
     return {
       id: 'drafts',
-      label: '草稿审核',
+      label: '平台版本',
       state: 'blocked',
-      detail: `已审核 ${readyCount}/${adapterCount}`,
-      action: '完成全部平台人工审核',
+      detail: `已生成 ${draftCount}/${adapterCount}`,
+      action: '重新生成平台版本',
     };
   }
 
   return {
     id: 'drafts',
-    label: '草稿审核',
+    label: '平台版本',
     state: 'done',
-    detail: `已审核 ${readyCount}/${adapterCount}`,
+    detail: `已生成 ${draftCount}/${adapterCount}`,
     action: '可以进入发布检查',
   };
 }
@@ -112,7 +112,7 @@ function createContentReviewItem(session: SavedSession | null): PublishReadiness
       label: '内容审查',
       state: 'warning',
       detail: '存在价值观风险提示',
-      action: '发布前人工确认',
+      action: '发布前请关注',
     };
   }
 

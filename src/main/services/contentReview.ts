@@ -289,7 +289,7 @@ function createReviewMessage(issues: ContentReviewIssue[], baseMessage: string):
     return `${baseMessage}, 发现 ${legalCount} 条法律风险, 已拦截发布`;
   }
   if (valuesCount > 0) {
-    return `${baseMessage}, 发现 ${valuesCount} 条价值观风险, 发布前请人工确认`;
+    return `${baseMessage}, 发现 ${valuesCount} 条价值观风险, 发布前请关注`;
   }
   return `${baseMessage}, 未发现明显风险`;
 }

@@ -35,7 +35,7 @@ describe('product status helpers', () => {
     });
 
     expect(steps.map((step) => [step.label, step.state, step.text])).toEqual([
-      ['审核', 'blocked', '待审核'],
+      ['草稿', 'done', '已生成'],
       ['审查', 'blocked', '待审查'],
       ['账号', 'done', '已授权'],
       ['回执', 'idle', '暂无回执'],
@@ -68,7 +68,7 @@ describe('product status helpers', () => {
         platformId: 'wechat',
         mode: 'officialApi',
         status: 'failed',
-        message: '请先完成手动审核',
+        message: '发布失败',
         createdAt: '2026-05-29T04:00:00.000Z',
       },
     ] satisfies PublishEvent[]);

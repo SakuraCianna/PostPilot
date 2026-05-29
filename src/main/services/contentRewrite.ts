@@ -94,7 +94,7 @@ export async function rewriteContentRisks(
       drafts: localDrafts,
       model: DEEPSEEK_MODEL,
       modelStatus: 'local-fallback',
-      message: '未配置 DeepSeek API Key, 已使用本地规则优化风险表达, 请重新人工审核',
+      message: '未配置 DeepSeek API Key, 已使用本地规则优化风险表达, 请重新进行 AI 审查',
     };
   }
 
@@ -106,14 +106,14 @@ export async function rewriteContentRisks(
       drafts: mergeDrafts(aiDrafts, localDrafts),
       model: DEEPSEEK_MODEL,
       modelStatus: 'ai',
-      message: '已使用 DeepSeek 优化风险表达, 请重新人工审核',
+      message: '已使用 DeepSeek 优化风险表达, 请重新进行 AI 审查',
     };
   } catch {
     return {
       drafts: localDrafts,
       model: DEEPSEEK_MODEL,
       modelStatus: 'error-fallback',
-      message: 'DeepSeek 风险表达优化失败, 已使用本地规则兜底, 请重新人工审核',
+      message: 'DeepSeek 风险表达优化失败, 已使用本地规则兜底, 请重新进行 AI 审查',
     };
   }
 }
@@ -154,7 +154,7 @@ async function callDeepSeekRewrite(
                   summary: 'string',
                   body: 'string',
                   hashtags: ['string'],
-                  status: 'needs-review',
+                  status: 'ready',
                 },
               ],
             },
@@ -162,7 +162,7 @@ async function callDeepSeekRewrite(
               '只改写审查问题相关表达',
               '不要删除核心观点',
               '不要新增数据, 案例, 背书或法律结论',
-              '所有返回草稿都必须回到 needs-review',
+              '所有返回草稿都必须保持 ready, 发布前仍需要重新进行 AI 审查',
             ],
             platformRules: PLATFORM_ADAPTERS.map((adapter) => ({
               id: adapter.id,
@@ -192,7 +192,7 @@ function parseDeepSeekDrafts(payload: unknown): PlatformDraft[] {
   }
 
   const parsed = DraftBundleSchema.parse(JSON.parse(content));
-  return parsed.drafts.map((draft) => normalizeDraft({ ...draft, status: 'needs-review' }));
+  return parsed.drafts.map((draft) => normalizeDraft({ ...draft, status: 'ready' }));
 }
 
 function createLocalRewriteDrafts(
@@ -211,7 +211,7 @@ function createLocalRewriteDrafts(
 
     return normalizeDraft({
       ...rewritten,
-      status: 'needs-review',
+      status: 'ready',
     });
   });
 }
@@ -260,7 +260,7 @@ function mergeDrafts(aiDrafts: PlatformDraft[], localDrafts: PlatformDraft[]): P
       localDrafts.find((draft) => draft.platformId === adapter.id),
   )
     .filter((draft): draft is PlatformDraft => Boolean(draft))
-    .map((draft) => normalizeDraft({ ...draft, status: 'needs-review' }));
+    .map((draft) => normalizeDraft({ ...draft, status: 'ready' }));
 }
 
 function hasAscii(value: string): boolean {

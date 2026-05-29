@@ -47,16 +47,16 @@ export function createPublishTimeline(input: {
     );
 
     if (latestEvent) {
-      return createEventItem(adapter, latestEvent, draft?.status === 'ready');
+      return createEventItem(adapter, latestEvent, Boolean(draft));
     }
 
-    if (!draft || draft.status !== 'ready') {
+    if (!draft) {
       return {
         platformId: adapter.id,
         platformName: adapter.displayName,
         status: 'blocked',
         label: '待准备',
-        message: draft ? '等待人工审核' : '等待生成草稿',
+        message: '等待生成平台版本',
         mode: 'officialApi',
         attempts: 0,
         canRetry: false,
