@@ -11,6 +11,8 @@ import {
   Save,
   Send,
   Settings,
+  ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Trash2,
   X,
@@ -27,6 +29,8 @@ import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
 import { createReadinessSteps } from './productStatus';
 import {
+  type ContentReviewIssue,
+  type ContentReviewStatus,
   type PlatformAccountConfig,
   type PlatformDraft,
   type PlatformId,
@@ -49,6 +53,7 @@ export function App() {
   const [body, setBody] = useState(INITIAL_BODY);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isReviewingContent, setIsReviewingContent] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
   const [isSavingAccount, setIsSavingAccount] = useState<PlatformId | null>(null);
@@ -97,6 +102,16 @@ export function App() {
     [currentSession?.publishEvents, selectedPlatform],
   );
 
+  const contentReview = currentSession?.contentReview ?? null;
+
+  const selectedReviewIssues = useMemo(() => {
+    return (
+      contentReview?.issues.filter(
+        (issue) => !issue.platformId || issue.platformId === selectedPlatform,
+      ) ?? []
+    );
+  }, [contentReview, selectedPlatform]);
+
   const editableDraft = selectedDraft
     ? draftEdits[selectedDraft.platformId] ?? selectedDraft
     : null;
@@ -119,9 +134,10 @@ export function App() {
     return createReadinessSteps({
       draft: editableDraft,
       account: selectedAccountConfig,
+      contentReview,
       publishEvents: selectedPublishEvents,
     });
-  }, [editableDraft, selectedAccountConfig, selectedPublishEvents]);
+  }, [contentReview, editableDraft, selectedAccountConfig, selectedPublishEvents]);
 
   const approvedDraftCount = useMemo(
     () =>
@@ -133,6 +149,13 @@ export function App() {
   );
 
   const allDraftsReady = approvedDraftCount === PLATFORM_ADAPTERS.length;
+
+  const legalIssueCount =
+    contentReview?.issues.filter((issue) => issue.kind === 'legal').length ?? 0;
+  const valuesIssueCount =
+    contentReview?.issues.filter((issue) => issue.kind === 'values').length ?? 0;
+  const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
+  const allDraftsReadyForPublish = allDraftsReady && contentReviewAllowsPublish;
 
   useEffect(() => {
     if (!selectedDraft) {
@@ -173,6 +196,31 @@ export function App() {
       setNotice(error instanceof Error ? error.message : '生成失败');
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  async function handleRunContentReview() {
+    if (!currentSession) {
+      setNotice('请先生成并保存一次平台版本, 再进行内容审查');
+      return;
+    }
+
+    setIsReviewingContent(true);
+    setNotice('正在进行内容法律和价值观审查');
+
+    try {
+      const sessionForReview = await persistChangedDrafts(currentSession);
+      const reviewed = await window.postPilot.runContentReview({
+        sessionId: sessionForReview.id,
+      });
+      setCurrentSession(reviewed);
+      setDraftEdits({});
+      await refreshSessions();
+      setNotice(reviewed.contentReview?.message ?? '内容审查已完成');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '内容审查失败');
+    } finally {
+      setIsReviewingContent(false);
     }
   }
 
@@ -358,6 +406,11 @@ export function App() {
       ...current,
       [editableDraft.platformId]: applyDraftValidation(nextDraft),
     }));
+    if (resetReview) {
+      setCurrentSession((current) =>
+        current?.contentReview ? { ...current, contentReview: undefined } : current,
+      );
+    }
   }
 
   async function handleApproveDraft() {
@@ -753,6 +806,53 @@ export function App() {
               </div>
             ) : null}
 
+            <section className={`content-review-card ${contentReview?.status ?? 'not-reviewed'}`}>
+              <div className="content-review-heading">
+                <div>
+                  <span>内容审查</span>
+                  <strong>{getContentReviewStatusText(contentReview?.status)}</strong>
+                </div>
+                <button
+                  type="button"
+                  disabled={isReviewingContent || !currentSession}
+                  onClick={() => void handleRunContentReview()}
+                >
+                  {isReviewingContent ? (
+                    <Loader2 className="spin" size={15} />
+                  ) : contentReview?.status === 'passed' ? (
+                    <ShieldCheck size={15} />
+                  ) : (
+                    <ShieldAlert size={15} />
+                  )}
+                  AI 审查
+                </button>
+              </div>
+              <div className="content-review-metrics">
+                <span className="legal">法律 {legalIssueCount}</span>
+                <span className="values">价值观 {valuesIssueCount}</span>
+              </div>
+              {contentReview ? (
+                selectedReviewIssues.length > 0 ? (
+                  <div className="content-review-issues">
+                    {selectedReviewIssues.slice(0, 4).map((issue) => (
+                      <article className={`content-review-issue ${issue.kind}`} key={issue.id}>
+                        <div>
+                          <span>{getReviewIssueKindLabel(issue.kind)}</span>
+                          <strong>{issue.snippet}</strong>
+                        </div>
+                        <p>{issue.reason}</p>
+                        <small>{issue.suggestion}</small>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="review-empty">当前平台未发现明显风险</p>
+                )
+              ) : (
+                <p className="review-empty">发布前先完成内容法律和价值观审查</p>
+              )}
+            </section>
+
             <div className="draft-view-switch" aria-label="草稿查看方式">
               <button
                 className={draftViewMode === 'preview' ? 'active' : ''}
@@ -837,7 +937,11 @@ export function App() {
                   <button
                     key={mode}
                     type="button"
-                    disabled={isPublishing || (mode === 'officialApi' && editableDraft.status !== 'ready')}
+                    disabled={
+                      isPublishing ||
+                      (mode !== 'exportOnly' &&
+                        (editableDraft.status !== 'ready' || !contentReviewAllowsPublish))
+                    }
                     onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
                   >
                     {isPublishing && mode === 'simulated' ? (
@@ -858,7 +962,7 @@ export function App() {
         <button
           className="publish-all"
           type="button"
-          disabled={isPublishing || !currentSession || !allDraftsReady}
+          disabled={isPublishing || !currentSession || !allDraftsReadyForPublish}
           onClick={() => void handlePublishAll()}
         >
           <Send size={16} />
@@ -912,6 +1016,23 @@ function getAccountFieldLabel(platformId: PlatformId, key: string): string {
   return (
     PLATFORM_ACCOUNT_SCHEMAS[platformId].fields.find((field) => field.key === key)?.label ?? key
   );
+}
+
+function getContentReviewStatusText(status?: ContentReviewStatus): string {
+  if (status === 'passed') {
+    return '已通过';
+  }
+  if (status === 'needs-attention') {
+    return '需人工确认';
+  }
+  if (status === 'blocked') {
+    return '已拦截';
+  }
+  return '待审查';
+}
+
+function getReviewIssueKindLabel(kind: ContentReviewIssue['kind']): string {
+  return kind === 'legal' ? '法律风险' : '价值观风险';
 }
 
 function getPublishModeLabel(mode: PublishMode): string {

@@ -47,6 +47,25 @@ describe('session repository', () => {
       message: 'Simulated publish complete.',
     });
 
+    repo.saveContentReview(saved.id, {
+      status: 'blocked',
+      model: 'deepseek-v4-flash',
+      modelStatus: 'local-fallback',
+      message: 'Local review blocked risky content.',
+      reviewedAt: '2026-05-29T04:00:00.000Z',
+      issues: [
+        {
+          id: 'risk-1',
+          kind: 'legal',
+          platformId: 'wechat',
+          snippet: 'guaranteed profit',
+          reason: 'Absolute financial promise.',
+          suggestion: 'Use a neutral risk disclosure.',
+          confidence: 'high',
+        },
+      ],
+    });
+
     const sessions = repo.listSessions();
     const loaded = repo.getSession(saved.id);
 
@@ -54,6 +73,8 @@ describe('session repository', () => {
     expect(sessions[0]?.title).toBe('Launch note');
     expect(loaded?.drafts[0]?.platformId).toBe('wechat');
     expect(loaded?.publishEvents[0]?.mode).toBe('simulated');
+    expect(loaded?.contentReview?.status).toBe('blocked');
+    expect(loaded?.contentReview?.issues[0]?.kind).toBe('legal');
 
     db.close();
   });

@@ -25,6 +25,7 @@ export function createDatabase(dbPath: string): PostPilotDatabase {
       model TEXT NOT NULL,
       model_status TEXT NOT NULL,
       model_message TEXT NOT NULL,
+      content_review_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     ) STRICT;
@@ -64,6 +65,7 @@ export function createDatabase(dbPath: string): PostPilotDatabase {
 
   ensureColumn(db, 'publish_events', 'receipt_json', 'TEXT');
   ensureColumn(db, 'publish_events', 'attempts', 'INTEGER NOT NULL DEFAULT 1');
+  ensureColumn(db, 'sessions', 'content_review_json', 'TEXT');
 
   return db;
 }

@@ -34,6 +34,7 @@ describe('product status helpers', () => {
 
     expect(steps.map((step) => [step.label, step.state, step.text])).toEqual([
       ['审核', 'blocked', '待审核'],
+      ['审查', 'blocked', '待审查'],
       ['账号', 'done', '已授权'],
       ['回执', 'idle', '暂无回执'],
     ]);
@@ -72,5 +73,38 @@ describe('product status helpers', () => {
       state: 'failed',
       text: '发布失败',
     });
+  });
+
+  it('adds a blocked content review readiness step', () => {
+    const steps = createReadinessSteps({
+      draft,
+      account,
+      contentReview: {
+        status: 'blocked',
+        model: 'deepseek-v4-flash',
+        modelStatus: 'local-fallback',
+        message: 'Local review blocked risky content.',
+        reviewedAt: '2026-05-29T04:00:00.000Z',
+        issues: [
+          {
+            id: 'risk-1',
+            kind: 'legal',
+            platformId: 'wechat',
+            snippet: 'guaranteed profit',
+            reason: 'Absolute financial promise.',
+            suggestion: 'Use neutral wording.',
+            confidence: 'high',
+          },
+        ],
+      },
+      publishEvents: [],
+    });
+
+    expect(steps).toContainEqual(
+      expect.objectContaining({
+        id: 'content',
+        state: 'failed',
+      }),
+    );
   });
 });

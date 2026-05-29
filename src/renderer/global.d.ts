@@ -6,6 +6,7 @@ import type {
   PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
+  RunContentReviewInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
@@ -28,6 +29,7 @@ declare global {
       deleteAccountConfig(platformId: PlatformId): Promise<PlatformAccountConfig[]>;
       verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
       updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
+      runContentReview(input: RunContentReviewInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;
       runPublishTask(input: {
         sessionId: string;

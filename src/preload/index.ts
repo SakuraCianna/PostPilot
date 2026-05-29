@@ -7,6 +7,7 @@ import type {
   PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
+  RunContentReviewInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
@@ -33,6 +34,8 @@ const api = {
   ): Promise<VerifyPlatformAccountResult> => ipcRenderer.invoke('accounts:verify', input),
   updateDraft: (input: UpdateDraftInput): Promise<SavedSession> =>
     ipcRenderer.invoke('drafts:update', input),
+  runContentReview: (input: RunContentReviewInput): Promise<SavedSession> =>
+    ipcRenderer.invoke('review:run', input),
   generateAdaptations: (input: GenerateAdaptationsInput): Promise<SavedSession> =>
     ipcRenderer.invoke('adaptations:generate', input),
   runPublishTask: (

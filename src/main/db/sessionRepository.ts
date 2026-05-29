@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
+  ContentReviewResult,
   ModelStatus,
   PlatformDraft,
   PlatformId,
@@ -20,6 +21,7 @@ interface SessionRow {
   model: 'deepseek-v4-flash';
   model_status: ModelStatus;
   model_message: string;
+  content_review_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,7 +50,7 @@ export function createSessionRepository(db: PostPilotDatabase) {
       if (existing) {
         db.prepare(`
           UPDATE sessions
-          SET title = ?, source_body = ?, drafts_json = ?, model = ?, model_status = ?, model_message = ?, updated_at = ?
+          SET title = ?, source_body = ?, drafts_json = ?, model = ?, model_status = ?, model_message = ?, content_review_json = ?, updated_at = ?
           WHERE id = ?
         `).run(
           input.title,
@@ -57,13 +59,16 @@ export function createSessionRepository(db: PostPilotDatabase) {
           input.model,
           input.modelStatus,
           input.modelMessage,
+          input.contentReview ? JSON.stringify(input.contentReview) : null,
           now,
           id,
         );
       } else {
         db.prepare(`
-          INSERT INTO sessions (id, title, source_body, drafts_json, model, model_status, model_message, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO sessions (
+            id, title, source_body, drafts_json, model, model_status, model_message, content_review_json, created_at, updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           id,
           input.title,
@@ -72,6 +77,7 @@ export function createSessionRepository(db: PostPilotDatabase) {
           input.model,
           input.modelStatus,
           input.modelMessage,
+          input.contentReview ? JSON.stringify(input.contentReview) : null,
           now,
           now,
         );
@@ -150,6 +156,23 @@ export function createSessionRepository(db: PostPilotDatabase) {
         createdAt,
       };
     },
+
+    saveContentReview(sessionId: string, review: ContentReviewResult): SavedSession {
+      const now = new Date().toISOString();
+      const result = db
+        .prepare('UPDATE sessions SET content_review_json = ?, updated_at = ? WHERE id = ?')
+        .run(JSON.stringify(review), now, sessionId);
+
+      if (result.changes === 0) {
+        throw new Error('未找到要保存审查结果的历史记录');
+      }
+
+      const saved = this.getSession(sessionId);
+      if (!saved) {
+        throw new Error('保存审查结果后读取历史记录失败');
+      }
+      return saved;
+    },
   };
 }
 
@@ -175,5 +198,8 @@ function mapSession(row: SessionRow, eventRows: PublishEventRow[]): SavedSession
       attempts: event.attempts,
       createdAt: event.created_at,
     })),
+    contentReview: row.content_review_json
+      ? (JSON.parse(row.content_review_json) as ContentReviewResult)
+      : undefined,
   };
 }

@@ -46,6 +46,18 @@ export async function createPublishTask(
     };
   }
 
+  if (input.mode !== 'exportOnly' && input.contentReview?.status === 'blocked') {
+    return {
+      status: 'failed',
+      event: {
+        platformId: input.draft.platformId,
+        mode: input.mode,
+        status: 'failed',
+        message: '内容法律风险未处理, 已拦截发布',
+      },
+    };
+  }
+
   if (input.mode === 'simulated') {
     return {
       status: 'success',

@@ -6,6 +6,7 @@ import { createAccountRepository } from './db/accountRepository';
 import { createDatabase } from './db/database';
 import { createSessionRepository } from './db/sessionRepository';
 import { createSettingsRepository, type SecretCodec } from './db/settingsRepository';
+import { reviewContentSafety } from './services/contentReview';
 import { generateAdaptations } from './services/deepseek';
 import { verifyOfficialAccount } from './services/officialConnectors';
 import { createPublishTask } from './services/publishers';
@@ -19,6 +20,7 @@ import {
   type GenerateAdaptationsInput,
   type PlatformId,
   type PublishMode,
+  type RunContentReviewInput,
   type SaveModelSettingsInput,
   type SavePlatformAccountInput,
   type UpdateDraftInput,
@@ -125,6 +127,15 @@ ipcMain.handle('drafts:update', (_event, input: UpdateDraftInput) => {
   });
 });
 
+ipcMain.handle('review:run', async (_event, input: RunContentReviewInput) => {
+  const session = sessions.getSession(input.sessionId);
+  if (!session) {
+    throw new Error('未找到要审查的历史记录');
+  }
+
+  return runAndSaveContentReview(session);
+});
+
 ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptationsInput) => {
   const body = input.body.trim();
   if (!body) {
@@ -158,7 +169,9 @@ ipcMain.handle(
       throw new Error('未找到对应历史记录');
     }
 
-    const draft = session.drafts.find((item) => item.platformId === input.platformId);
+    const reviewedSession =
+      input.mode === 'exportOnly' ? session : await ensureContentReview(session);
+    const draft = reviewedSession.drafts.find((item) => item.platformId === input.platformId);
     if (!draft) {
       throw new Error('未找到对应平台草稿');
     }
@@ -168,6 +181,7 @@ ipcMain.handle(
         sessionId: input.sessionId,
         draft,
         mode: input.mode,
+        contentReview: reviewedSession.contentReview,
       },
       {
         getAccountConfig: (platformId) => accounts.getSecretAccountConfig(platformId),
@@ -213,6 +227,30 @@ function normalizeTitle(title: string, body: string): string {
     return trimmed;
   }
   return createLocalDrafts({ title: '', body })[0]?.title ?? '未命名内容';
+}
+
+async function ensureContentReview(session: NonNullable<ReturnType<typeof sessions.getSession>>) {
+  if (session.contentReview) {
+    return session;
+  }
+  return runAndSaveContentReview(session);
+}
+
+async function runAndSaveContentReview(
+  session: NonNullable<ReturnType<typeof sessions.getSession>>,
+) {
+  const secret = settings.getDeepSeekSecret();
+  const review = await reviewContentSafety({
+    content: {
+      title: session.title,
+      body: session.sourceBody,
+    },
+    drafts: session.drafts,
+    apiKey: secret.apiKey || process.env.DEEPSEEK_API_KEY,
+    baseUrl: secret.baseUrl || process.env.DEEPSEEK_BASE_URL,
+  });
+
+  return sessions.saveContentReview(session.id, review);
 }
 
 function createSecretCodec(): SecretCodec {

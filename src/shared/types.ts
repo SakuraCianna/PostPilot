@@ -10,6 +10,12 @@ export type DraftStatus = 'ready' | 'needs-review';
 
 export type ModelStatus = 'ai' | 'local-fallback' | 'error-fallback';
 
+export type ContentReviewStatus = 'passed' | 'needs-attention' | 'blocked';
+
+export type ContentRiskKind = 'legal' | 'values';
+
+export type ContentRiskConfidence = 'low' | 'medium' | 'high';
+
 export type PlatformAccountStatus =
   | 'not-configured'
   | 'configured'
@@ -48,6 +54,25 @@ export interface PlatformDraft {
   warnings?: string[];
 }
 
+export interface ContentReviewIssue {
+  id: string;
+  kind: ContentRiskKind;
+  platformId?: PlatformId;
+  snippet: string;
+  reason: string;
+  suggestion: string;
+  confidence: ContentRiskConfidence;
+}
+
+export interface ContentReviewResult {
+  status: ContentReviewStatus;
+  model: DeepSeekModel;
+  modelStatus: ModelStatus;
+  message: string;
+  reviewedAt: string;
+  issues: ContentReviewIssue[];
+}
+
 export interface AdaptationResult {
   drafts: PlatformDraft[];
   model: DeepSeekModel;
@@ -66,6 +91,7 @@ export interface SavedSession {
   createdAt: string;
   updatedAt: string;
   publishEvents: PublishEvent[];
+  contentReview?: ContentReviewResult;
 }
 
 export interface SessionSummary {
@@ -84,6 +110,7 @@ export interface SaveSessionInput {
   model: DeepSeekModel;
   modelStatus: ModelStatus;
   modelMessage: string;
+  contentReview?: ContentReviewResult | null;
 }
 
 export interface PublishEventInput {
@@ -155,6 +182,7 @@ export interface PublishTaskInput {
   sessionId?: string;
   draft: PlatformDraft;
   mode: PublishMode;
+  contentReview?: ContentReviewResult;
 }
 
 export interface PublishTaskResult {
@@ -207,6 +235,10 @@ export interface SavePlatformAccountInput {
 
 export interface VerifyPlatformAccountInput {
   platformId: PlatformId;
+}
+
+export interface RunContentReviewInput {
+  sessionId: string;
 }
 
 export interface VerifyPlatformAccountResult {

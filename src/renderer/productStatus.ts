@@ -1,13 +1,14 @@
 import type {
+  ContentReviewResult,
   PlatformAccountConfig,
   PlatformDraft,
   PublishEvent,
 } from '../shared/types';
 
-export type ProductStatusState = 'done' | 'blocked' | 'failed' | 'idle';
+export type ProductStatusState = 'done' | 'blocked' | 'failed' | 'idle' | 'warning';
 
 export interface ReadinessStep {
-  id: 'review' | 'account' | 'receipt';
+  id: 'review' | 'content' | 'account' | 'receipt';
   label: string;
   state: ProductStatusState;
   text: string;
@@ -16,6 +17,7 @@ export interface ReadinessStep {
 export function createReadinessSteps(input: {
   draft: PlatformDraft;
   account: PlatformAccountConfig | null;
+  contentReview?: ContentReviewResult | null;
   publishEvents: PublishEvent[];
 }): ReadinessStep[] {
   return [
@@ -24,6 +26,11 @@ export function createReadinessSteps(input: {
       label: '审核',
       state: input.draft.status === 'ready' ? 'done' : 'blocked',
       text: input.draft.status === 'ready' ? '已审核' : '待审核',
+    },
+    {
+      id: 'content',
+      label: '审查',
+      ...getContentReviewDisplayState(input.contentReview ?? null),
     },
     {
       id: 'account',
@@ -36,6 +43,36 @@ export function createReadinessSteps(input: {
       ...getPublishEventState(input.publishEvents),
     },
   ];
+}
+
+export function getContentReviewDisplayState(
+  review: ContentReviewResult | null,
+): Pick<ReadinessStep, 'state' | 'text'> {
+  if (!review) {
+    return {
+      state: 'blocked',
+      text: '待审查',
+    };
+  }
+
+  if (review.status === 'passed') {
+    return {
+      state: 'done',
+      text: '已通过',
+    };
+  }
+
+  if (review.status === 'blocked') {
+    return {
+      state: 'failed',
+      text: '已拦截',
+    };
+  }
+
+  return {
+    state: 'warning',
+    text: '需关注',
+  };
 }
 
 export function getAccountDisplayState(
