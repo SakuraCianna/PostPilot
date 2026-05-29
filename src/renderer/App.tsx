@@ -53,7 +53,7 @@ const SIDEBAR_WIDTH = 280;
 const MIN_WORKSPACE_WIDTH = 460;
 const PREVIEW_MIN_WIDTH = 340;
 const PREVIEW_MAX_WIDTH = 760;
-const RESIZER_WIDTH = 10;
+const RESIZER_WIDTH = 8;
 
 export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
