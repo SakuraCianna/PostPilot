@@ -69,11 +69,35 @@ export function createPublishTask(input: PublishTaskInput): PublishTaskResult {
 
 function createArtifact(input: PublishTaskInput): PublishArtifact {
   const adapter = getPlatformAdapter(input.draft.platformId);
-  const extension = adapter.exportFormat === 'html' ? 'html' : 'md';
+  const exportMeta = getExportMeta(adapter.exportFormat);
 
   return {
-    filename: `${input.draft.platformId}-${Date.now()}.${extension}`,
+    filename: `${input.draft.platformId}-${Date.now()}.${exportMeta.extension}`,
     content: formatDraftForClipboard(input.draft),
-    mimeType: adapter.exportFormat === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8',
+    mimeType: exportMeta.mimeType,
+  };
+}
+
+function getExportMeta(format: 'html' | 'markdown' | 'plain'): {
+  extension: string;
+  mimeType: string;
+} {
+  if (format === 'html') {
+    return {
+      extension: 'html',
+      mimeType: 'text/html;charset=utf-8',
+    };
+  }
+
+  if (format === 'markdown') {
+    return {
+      extension: 'md',
+      mimeType: 'text/markdown;charset=utf-8',
+    };
+  }
+
+  return {
+    extension: 'txt',
+    mimeType: 'text/plain;charset=utf-8',
   };
 }

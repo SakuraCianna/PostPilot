@@ -38,6 +38,22 @@ describe('publishers', () => {
     expect(task.artifact?.content).toContain('<p>正文</p>');
   });
 
+  it('exports plain text platforms as txt artifacts', () => {
+    const task = createPublishTask({
+      draft: {
+        ...draft,
+        platformId: 'bilibili',
+        body: '视频简介',
+        hashtags: ['效率工具'],
+      },
+      mode: 'exportOnly',
+    });
+
+    expect(task.artifact?.filename).toMatch(/^bilibili-.*\.txt$/);
+    expect(task.artifact?.mimeType).toBe('text/plain;charset=utf-8');
+    expect(task.artifact?.content).toContain('视频简介');
+  });
+
   it('returns a pending official API task when connector is not implemented', () => {
     const task = createPublishTask({
       draft,

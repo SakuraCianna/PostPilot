@@ -18,10 +18,16 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   min-width: 1000px;
-  min-height: 100vh;
   background: var(--white);
 }
 
@@ -44,7 +50,9 @@ button:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(460px, 1fr) 430px;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--white);
 }
 
@@ -52,7 +60,9 @@ button:disabled {
 .preview-pane {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   border-color: var(--border);
   background: #fbfbfb;
 }
@@ -138,6 +148,7 @@ button:disabled {
   flex: 1;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -183,7 +194,9 @@ button:disabled {
 .workspace {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   padding: 18px 24px;
 }
 
@@ -244,6 +257,7 @@ button:disabled {
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-height: 0;
   width: min(860px, 100%);
   margin: 0 auto;
   padding: 48px 0 24px;
@@ -268,10 +282,11 @@ button:disabled {
 
 .body-input {
   flex: 1;
-  min-height: 420px;
+  min-height: 0;
   margin-top: 24px;
   border: 0;
   outline: 0;
+  overflow-y: auto;
   resize: none;
   color: var(--black);
   font-size: 16px;
@@ -298,6 +313,7 @@ button:disabled {
 
 .platform-tabs {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
@@ -322,7 +338,9 @@ button:disabled {
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
   padding-top: 4px;
+  padding-right: 2px;
 }
 
 .draft-heading {
@@ -397,8 +415,9 @@ button:disabled {
 }
 
 .draft-body,
-.draft-body-input {
-  flex: 1;
+.draft-body-input,
+.draft-rendered-preview {
+  flex: 1 1 auto;
   overflow: auto;
   min-height: 260px;
   margin: 0;
@@ -418,6 +437,103 @@ button:disabled {
   width: 100%;
   outline: 0;
   resize: vertical;
+}
+
+.draft-view-switch {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.draft-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.draft-view-switch button.active {
+  background: var(--black);
+  color: var(--white);
+  border-color: var(--black);
+}
+
+.draft-rendered-preview {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.draft-rendered-preview h1,
+.draft-rendered-preview h2,
+.draft-rendered-preview h3 {
+  margin: 0 0 12px;
+  color: var(--black);
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.draft-rendered-preview h1 {
+  font-size: 22px;
+}
+
+.draft-rendered-preview h2 {
+  font-size: 18px;
+}
+
+.draft-rendered-preview h3 {
+  font-size: 16px;
+}
+
+.draft-rendered-preview p,
+.draft-rendered-preview ul,
+.draft-rendered-preview ol,
+.draft-rendered-preview blockquote,
+.draft-rendered-preview pre {
+  margin: 0 0 12px;
+}
+
+.draft-rendered-preview ul,
+.draft-rendered-preview ol {
+  padding-left: 20px;
+}
+
+.draft-rendered-preview blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+  color: var(--muted);
+}
+
+.draft-rendered-preview code,
+.draft-rendered-preview pre {
+  border-radius: 6px;
+  background: var(--soft);
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.draft-rendered-preview code {
+  padding: 2px 4px;
+}
+
+.draft-rendered-preview pre {
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.draft-rendered-preview a {
+  color: var(--black);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .hashtags-input {
@@ -494,9 +610,11 @@ button:disabled {
 
 .publish-all {
   width: 100%;
+  flex: 0 0 auto;
 }
 
 .events {
+  flex: 0 0 auto;
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
@@ -656,11 +774,13 @@ button:disabled {
 
   .app-shell {
     grid-template-columns: 240px 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(360px, 48vh);
   }
 
   .preview-pane {
     grid-column: 1 / -1;
-    min-height: 520px;
+    height: auto;
+    min-height: 0;
     border-top: 1px solid var(--border);
     border-left: 0;
   }

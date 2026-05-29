@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_ADAPTERS,
+  applyDraftValidation,
   createLocalDrafts,
   validatePlatformDraft,
 } from './platformAdapters';
@@ -46,5 +47,19 @@ describe('platform adapters', () => {
 
     expect(warnings).toContain('标题不能超过 20 个字符');
     expect(warnings).toContain('话题标签不能超过 6 个');
+  });
+
+  it('updates draft status and warnings after draft edits', () => {
+    const draft = applyDraftValidation({
+      platformId: 'wechat',
+      title: '',
+      summary: '',
+      body: '<p>正文</p>',
+      hashtags: [],
+      status: 'ready',
+    });
+
+    expect(draft.status).toBe('needs-review');
+    expect(draft.warnings).toEqual(['标题不能为空', '微信公众号建议填写摘要']);
   });
 });

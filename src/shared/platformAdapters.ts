@@ -122,13 +122,22 @@ export function validatePlatformDraft(platformId: PlatformId, draft: PlatformDra
 }
 
 export function normalizeDraft(draft: PlatformDraft): PlatformDraft {
-  return withWarnings({
+  return applyDraftValidation({
     ...draft,
     title: draft.title.trim(),
     summary: draft.summary.trim(),
     body: draft.body.trim(),
     hashtags: draft.hashtags.map((tag) => tag.trim()).filter(Boolean),
   });
+}
+
+export function applyDraftValidation(draft: PlatformDraft): PlatformDraft {
+  const warnings = validatePlatformDraft(draft.platformId, draft);
+  return {
+    ...draft,
+    status: warnings.length > 0 ? 'needs-review' : 'ready',
+    warnings,
+  };
 }
 
 export function formatDraftForClipboard(draft: PlatformDraft): string {

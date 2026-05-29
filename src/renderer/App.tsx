@@ -2,8 +2,10 @@ import {
   Check,
   Clipboard,
   Download,
+  Eye,
   History,
   Loader2,
+  PencilLine,
   Play,
   Plus,
   Save,
@@ -12,12 +14,15 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  applyDraftValidation,
   createLocalDrafts,
   formatDraftForClipboard,
   PLATFORM_ADAPTERS,
 } from '../shared/platformAdapters';
+import { createDraftPreviewHtml } from './previewMarkup';
 import {
   DEEPSEEK_MODEL,
   type ModelSettings,
@@ -49,6 +54,7 @@ export function App() {
   const [settingsBaseUrl, setSettingsBaseUrl] = useState('https://api.deepseek.com');
   const [settingsApiKey, setSettingsApiKey] = useState('');
   const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
+  const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
   const [notice, setNotice] = useState('本地历史已连接 SQLite, 模型固定为 deepseek-v4-flash');
 
   useEffect(() => {
@@ -79,6 +85,17 @@ export function App() {
     ? draftEdits[selectedDraft.platformId] ?? selectedDraft
     : null;
 
+  const draftPreviewHtml = useMemo(() => {
+    if (!editableDraft || !selectedAdapter) {
+      return '';
+    }
+    return createDraftPreviewHtml(
+      editableDraft,
+      selectedAdapter.exportFormat,
+      sanitizeDraftPreviewHtml,
+    );
+  }, [editableDraft, selectedAdapter]);
+
   useEffect(() => {
     if (!selectedDraft) {
       return;
@@ -107,6 +124,7 @@ export function App() {
       setTitle(saved.title);
       setBody(saved.sourceBody);
       setDraftEdits({});
+      setDraftViewMode('preview');
       await refreshSessions();
       setNotice(saved.modelMessage);
     } catch (error) {
@@ -128,6 +146,7 @@ export function App() {
     setBody(loaded.sourceBody);
     setDraftEdits({});
     setSelectedPlatform(loaded.drafts[0]?.platformId ?? 'wechat');
+    setDraftViewMode('preview');
     setNotice(loaded.modelMessage);
   }
 
@@ -137,6 +156,7 @@ export function App() {
     setBody('');
     setDraftEdits({});
     setSelectedPlatform('wechat');
+    setDraftViewMode('preview');
     setNotice('已创建新的本地草稿');
   }
 
@@ -163,8 +183,9 @@ export function App() {
 
     setIsPublishing(true);
     try {
+      const sessionForPublish = await persistChangedDrafts(currentSession);
       const result = await window.postPilot.runPublishTask({
-        sessionId: currentSession.id,
+        sessionId: sessionForPublish.id,
         platformId,
         mode,
       });
@@ -195,10 +216,11 @@ export function App() {
 
     setIsPublishing(true);
     try {
-      let updated: SavedSession | null = currentSession;
-      for (const draft of currentSession.drafts) {
+      const sessionForPublish = await persistChangedDrafts(currentSession);
+      let updated: SavedSession | null = sessionForPublish;
+      for (const draft of sessionForPublish.drafts) {
         const result = await window.postPilot.runPublishTask({
-          sessionId: currentSession.id,
+          sessionId: sessionForPublish.id,
           platformId: draft.platformId,
           mode: 'simulated',
         });
@@ -265,10 +287,46 @@ export function App() {
     setDraftEdits((current) => ({
       ...current,
       [editableDraft.platformId]: {
-        ...editableDraft,
-        ...patch,
+        ...applyDraftValidation({
+          ...editableDraft,
+          ...patch,
+        }),
       },
     }));
+  }
+
+  async function persistChangedDrafts(session: SavedSession): Promise<SavedSession> {
+    let latestSession = session;
+
+    for (const draft of Object.values(draftEdits)) {
+      if (!draft) {
+        continue;
+      }
+
+      const savedDraft = latestSession.drafts.find(
+        (item) => item.platformId === draft.platformId,
+      );
+      if (!savedDraft || areDraftsEqual(savedDraft, draft)) {
+        continue;
+      }
+
+      latestSession = await window.postPilot.updateDraft({
+        sessionId: latestSession.id,
+        draft,
+      });
+      setDraftEdits((current) => ({
+        ...current,
+        [draft.platformId]:
+          latestSession.drafts.find((item) => item.platformId === draft.platformId) ?? draft,
+      }));
+    }
+
+    if (latestSession !== session) {
+      setCurrentSession(latestSession);
+      await refreshSessions();
+    }
+
+    return latestSession;
   }
 
   async function handleSaveDraft() {
@@ -366,6 +424,7 @@ export function App() {
             onChange={(event) => {
               setTitle(event.target.value);
               setCurrentSession(null);
+              setDraftEdits({});
             }}
           />
           <textarea
@@ -375,6 +434,7 @@ export function App() {
             onChange={(event) => {
               setBody(event.target.value);
               setCurrentSession(null);
+              setDraftEdits({});
             }}
           />
           <div className="editor-actions">
@@ -437,11 +497,39 @@ export function App() {
               </div>
             ) : null}
 
-            <textarea
-              className="draft-body-input"
-              value={editableDraft.body}
-              onChange={(event) => updateDraftEdit({ body: event.target.value })}
-            />
+            <div className="draft-view-switch" aria-label="草稿查看方式">
+              <button
+                className={draftViewMode === 'preview' ? 'active' : ''}
+                type="button"
+                aria-pressed={draftViewMode === 'preview'}
+                onClick={() => setDraftViewMode('preview')}
+              >
+                <Eye size={15} />
+                预览
+              </button>
+              <button
+                className={draftViewMode === 'edit' ? 'active' : ''}
+                type="button"
+                aria-pressed={draftViewMode === 'edit'}
+                onClick={() => setDraftViewMode('edit')}
+              >
+                <PencilLine size={15} />
+                编辑
+              </button>
+            </div>
+
+            {draftViewMode === 'edit' ? (
+              <textarea
+                className="draft-body-input"
+                value={editableDraft.body}
+                onChange={(event) => updateDraftEdit({ body: event.target.value })}
+              />
+            ) : (
+              <article
+                className="draft-rendered-preview"
+                dangerouslySetInnerHTML={{ __html: draftPreviewHtml }}
+              />
+            )}
 
             <input
               className="hashtags-input"
@@ -628,6 +716,18 @@ function getPublishModeIcon(mode: PublishMode) {
     return <Play size={16} />;
   }
   return <Send size={16} />;
+}
+
+function sanitizeDraftPreviewHtml(value: string): string {
+  return DOMPurify.sanitize(value, {
+    ADD_ATTR: ['target', 'rel'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'style'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+  });
+}
+
+function areDraftsEqual(left: PlatformDraft, right: PlatformDraft): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function formatTime(value: string): string {
