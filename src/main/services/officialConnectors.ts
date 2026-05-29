@@ -95,7 +95,7 @@ export async function publishWithOfficialConnector(
   if (options.draft.platformId !== 'wechat') {
     return {
       status: 'failed',
-      message: `${schema.displayName}暂未开放稳定的官方写入发布接口`,
+      message: getUnsupportedOfficialMessage(options.draft.platformId),
       attempts: 0,
     };
   }
@@ -283,4 +283,14 @@ function readWechatError(payload: Record<string, unknown>, fallback: string): st
   const errcode = typeof payload.errcode === 'number' ? `错误码 ${payload.errcode}` : '';
   const errmsg = typeof payload.errmsg === 'string' ? payload.errmsg : '';
   return [fallback, errcode, errmsg].filter(Boolean).join(', ');
+}
+
+function getUnsupportedOfficialMessage(platformId: PlatformId): string {
+  const messages: Record<PlatformId, string> = {
+    wechat: '微信公众号官方发布接口不可用',
+    zhihu: '知乎暂未开放稳定的官方写入发布接口',
+    bilibili: 'B 站官方发布需要视频稿件文件和授权, 当前文本草稿无法直接发布',
+    xiaohongshu: '小红书暂未开放稳定的普通笔记官方写入发布接口',
+  };
+  return messages[platformId];
 }

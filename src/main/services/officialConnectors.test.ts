@@ -128,4 +128,25 @@ describe('official connectors', () => {
     expect(result.status).toBe('failed');
     expect(result.message).toBe('知乎暂未开放稳定的官方写入发布接口');
   });
+
+  it('reports Bilibili video material requirement in Chinese', async () => {
+    const result = await publishWithOfficialConnector({
+      draft: {
+        platformId: 'bilibili',
+        title: '标题',
+        summary: '摘要',
+        body: '简介',
+        hashtags: [],
+        status: 'ready',
+      },
+      account: {
+        platformId: 'bilibili',
+        enabled: true,
+        fields: { accessToken: 'token' },
+      },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.message).toBe('B 站官方发布需要视频稿件文件和授权, 当前文本草稿无法直接发布');
+  });
 });

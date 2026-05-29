@@ -12,6 +12,7 @@ import {
   Send,
   Settings,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
@@ -22,10 +23,10 @@ import {
   formatDraftForClipboard,
   PLATFORM_ADAPTERS,
 } from '../shared/platformAdapters';
+import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
 import {
-  DEEPSEEK_MODEL,
-  type ModelSettings,
+  type PlatformAccountConfig,
   type PlatformDraft,
   type PlatformId,
   type PublishMode,
@@ -48,20 +49,21 @@ export function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [settings, setSettings] = useState<ModelSettings | null>(null);
-  const [settingsBaseUrl, setSettingsBaseUrl] = useState('https://api.deepseek.com');
-  const [settingsApiKey, setSettingsApiKey] = useState('');
+  const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
+  const [isSavingAccount, setIsSavingAccount] = useState<PlatformId | null>(null);
+  const [isVerifyingAccount, setIsVerifyingAccount] = useState<PlatformId | null>(null);
+  const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
+  const [accountForms, setAccountForms] = useState<
+    Partial<Record<PlatformId, Record<string, string>>>
+  >({});
   const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
   const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
-  const [notice, setNotice] = useState('本地历史已连接 SQLite, 模型固定为 deepseek-v4-flash');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     window.postPilot.getBootstrap().then((payload) => {
       setSessions(payload.sessions);
-      setSettings(payload.settings);
-      setSettingsBaseUrl(payload.settings.baseUrl);
+      setAccountConfigs(payload.accountConfigs);
     });
   }, []);
 
@@ -108,6 +110,10 @@ export function App() {
 
   async function refreshSessions() {
     setSessions(await window.postPilot.listSessions());
+  }
+
+  async function refreshAccountConfigs() {
+    setAccountConfigs(await window.postPilot.listAccountConfigs());
   }
 
   async function handleGenerate() {
@@ -208,7 +214,7 @@ export function App() {
     }
   }
 
-  async function handleSimulateAll() {
+  async function handlePublishAll() {
     if (!currentSession) {
       setNotice('请先生成并保存一次平台版本');
       return;
@@ -222,7 +228,7 @@ export function App() {
         const result = await window.postPilot.runPublishTask({
           sessionId: sessionForPublish.id,
           platformId: draft.platformId,
-          mode: 'simulated',
+          mode: 'officialApi',
         });
         updated = result.session;
       }
@@ -230,69 +236,131 @@ export function App() {
         setCurrentSession(updated);
       }
       await refreshSessions();
-      setNotice('四个平台模拟发布已完成');
+      setNotice('真实发布任务已执行');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '模拟发布失败');
+      setNotice(error instanceof Error ? error.message : '真实发布失败');
     } finally {
       setIsPublishing(false);
     }
   }
 
-  async function handleSaveSettings() {
-    setIsSavingSettings(true);
+  async function handleSaveAccount(platformId: PlatformId) {
+    setIsSavingAccount(platformId);
     try {
-      const saved = await window.postPilot.saveSettings({
-        apiKey: settingsApiKey.trim() ? settingsApiKey : undefined,
-        baseUrl: settingsBaseUrl,
+      const currentConfig = accountConfigs.find((config) => config.platformId === platformId);
+      const form = accountForms[platformId] ?? {};
+      const { enabled, ...fields } = form;
+      const saved = await window.postPilot.saveAccountConfig({
+        platformId,
+        enabled: enabled ? enabled === 'true' : currentConfig?.enabled ?? true,
+        fields,
       });
-      setSettings(saved);
-      setSettingsBaseUrl(saved.baseUrl);
-      setSettingsApiKey('');
-      setIsSettingsOpen(false);
-      setNotice(saved.apiKeyConfigured ? '模型设置已保存' : '模型设置已保存, API Key 已清空');
+      setAccountConfigs((current) =>
+        current.map((config) => (config.platformId === platformId ? saved : config)),
+      );
+      setAccountForms((current) => ({
+        ...current,
+        [platformId]: {},
+      }));
+      setNotice(`${getPlatformName(platformId)}账号配置已保存`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '保存模型设置失败');
+      setNotice(error instanceof Error ? error.message : '保存账号配置失败');
     } finally {
-      setIsSavingSettings(false);
+      setIsSavingAccount(null);
     }
   }
 
-  async function handleClearApiKey() {
-    setIsSavingSettings(true);
+  async function handleVerifyAccount(platformId: PlatformId) {
+    setIsVerifyingAccount(platformId);
     try {
-      const saved = await window.postPilot.saveSettings({
-        apiKey: '',
-        baseUrl: settingsBaseUrl,
+      const result = await window.postPilot.verifyAccountConfig({
+        platformId,
       });
-      setSettings(saved);
-      setSettingsApiKey('');
-      setNotice('API Key 已清空');
+      await refreshAccountConfigs();
+      setNotice(result.message);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '清空 API Key 失败');
+      setNotice(error instanceof Error ? error.message : '授权校验失败');
     } finally {
-      setIsSavingSettings(false);
+      setIsVerifyingAccount(null);
     }
   }
 
-  function openSettings() {
-    setSettingsBaseUrl(settings?.baseUrl ?? 'https://api.deepseek.com');
-    setSettingsApiKey('');
-    setIsSettingsOpen(true);
+  async function handleDeleteAccount(platformId: PlatformId) {
+    try {
+      const configs = await window.postPilot.deleteAccountConfig(platformId);
+      setAccountConfigs(configs);
+      setAccountForms((current) => ({
+        ...current,
+        [platformId]: {},
+      }));
+      setNotice(`${getPlatformName(platformId)}账号配置已删除`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '删除账号配置失败');
+    }
   }
 
-  function updateDraftEdit(patch: Partial<PlatformDraft>) {
+  function updateAccountField(platformId: PlatformId, key: string, value: string) {
+    setAccountForms((current) => ({
+      ...current,
+      [platformId]: {
+        ...current[platformId],
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateDraftEdit(patch: Partial<PlatformDraft>, resetReview = true) {
     if (!editableDraft) {
       return;
     }
+    const nextDraft = {
+      ...editableDraft,
+      ...patch,
+      status: patch.status === 'ready' || !resetReview ? patch.status ?? editableDraft.status : 'needs-review',
+    };
     setDraftEdits((current) => ({
       ...current,
-      [editableDraft.platformId]: {
-        ...applyDraftValidation({
-          ...editableDraft,
-          ...patch,
-        }),
-      },
+      [editableDraft.platformId]: applyDraftValidation(nextDraft),
     }));
+  }
+
+  async function handleApproveDraft() {
+    if (!editableDraft) {
+      return;
+    }
+    const approved = applyDraftValidation({
+      ...editableDraft,
+      status: 'ready',
+    });
+    if (approved.status !== 'ready') {
+      setNotice('请先修复平台草稿问题');
+      return;
+    }
+
+    setDraftEdits((current) => ({
+      ...current,
+      [approved.platformId]: approved,
+    }));
+
+    if (!currentSession) {
+      setNotice('审核已通过');
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const saved = await window.postPilot.updateDraft({
+        sessionId: currentSession.id,
+        draft: approved,
+      });
+      setCurrentSession(saved);
+      await refreshSessions();
+      setNotice(`${getPlatformName(approved.platformId)}审核已通过`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '保存审核状态失败');
+    } finally {
+      setIsSavingDraft(false);
+    }
   }
 
   async function persistChangedDrafts(session: SavedSession): Promise<SavedSession> {
@@ -357,8 +425,113 @@ export function App() {
     }
   }
 
+  function renderSettingsView() {
+    return (
+      <section className="settings-page">
+        <div className="settings-grid">
+          {PLATFORM_ADAPTERS.map((adapter) => {
+            const schema = PLATFORM_ACCOUNT_SCHEMAS[adapter.id];
+            const config =
+              accountConfigs.find((item) => item.platformId === adapter.id) ??
+              createFallbackAccountConfig(adapter.id);
+            const form = accountForms[adapter.id] ?? {};
+
+            return (
+              <section className="account-card" key={adapter.id}>
+                <div className="account-heading">
+                  <div>
+                    <h2>{adapter.displayName}</h2>
+                    <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
+                  </div>
+                  <label className="account-toggle">
+                    <input
+                      checked={form.enabled ? form.enabled === 'true' : config.enabled}
+                      type="checkbox"
+                      onChange={(event) =>
+                        updateAccountField(adapter.id, 'enabled', String(event.target.checked))
+                      }
+                    />
+                    启用
+                  </label>
+                </div>
+
+                <div className="account-fields">
+                  {schema.fields.map((field) => (
+                    <label className="field" key={field.key}>
+                      <span>{field.label}</span>
+                      {field.kind === 'select' ? (
+                        <select
+                          value={form[field.key] ?? ''}
+                          onChange={(event) =>
+                            updateAccountField(adapter.id, field.key, event.target.value)
+                          }
+                        >
+                          <option value="">保持当前</option>
+                          {field.options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          value={form[field.key] ?? ''}
+                          type={field.kind === 'password' ? 'password' : 'text'}
+                          placeholder={config.maskedFields[field.key] || field.label}
+                          onChange={(event) =>
+                            updateAccountField(adapter.id, field.key, event.target.value)
+                          }
+                        />
+                      )}
+                    </label>
+                  ))}
+                </div>
+
+                <div className="account-actions">
+                  <button
+                    type="button"
+                    disabled={isSavingAccount === adapter.id}
+                    onClick={() => void handleSaveAccount(adapter.id)}
+                  >
+                    {isSavingAccount === adapter.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    保存配置
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isVerifyingAccount === adapter.id || !config.configured}
+                    onClick={() => void handleVerifyAccount(adapter.id)}
+                  >
+                    {isVerifyingAccount === adapter.id ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    授权
+                  </button>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    disabled={!config.configured}
+                    onClick={() => void handleDeleteAccount(adapter.id)}
+                  >
+                    <Trash2 size={16} />
+                    删除配置
+                  </button>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${currentView === 'settings' ? 'settings-mode' : ''}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">P</div>
@@ -380,7 +553,7 @@ export function App() {
 
         <div className="history-list">
           {sessions.length === 0 ? (
-            <p className="empty-text">生成后会自动保存到本地 SQLite</p>
+            <p className="empty-text">暂无历史</p>
           ) : (
             sessions.map((item) => (
               <button
@@ -396,26 +569,27 @@ export function App() {
             ))
           )}
         </div>
+
+        <button
+          className={`sidebar-settings ${currentView === 'settings' ? 'active' : ''}`}
+          type="button"
+          onClick={() => setCurrentView(currentView === 'settings' ? 'editor' : 'settings')}
+        >
+          <Settings size={16} />
+          设置
+        </button>
       </aside>
 
-      <main className="workspace">
+      <main className={currentView === 'settings' ? 'workspace settings-workspace' : 'workspace'}>
         <header className="topbar">
           <div>
-            <h1>多平台内容适配</h1>
-            <p>{notice}</p>
-          </div>
-          <div className="topbar-actions">
-            <button className="settings-button" type="button" onClick={openSettings}>
-              <Settings size={15} />
-              模型设置
-            </button>
-            <div className="model-pill">
-              <Sparkles size={15} />
-              {DEEPSEEK_MODEL}
-            </div>
+            <h1>{currentView === 'settings' ? '设置' : '多平台内容适配'}</h1>
           </div>
         </header>
 
+        {currentView === 'settings' ? (
+          renderSettingsView()
+        ) : (
         <section className="editor-pane">
           <input
             className="title-input"
@@ -450,8 +624,10 @@ export function App() {
             </button>
           </div>
         </section>
+        )}
       </main>
 
+      {currentView === 'editor' ? (
       <aside className="preview-pane">
         <div className="platform-tabs">
           {PLATFORM_ADAPTERS.map((adapter) => (
@@ -478,8 +654,8 @@ export function App() {
                 />
               </div>
               <div className={`status ${editableDraft.status}`}>
-                <Check size={14} />
-                {editableDraft.status === 'ready' ? '可发布' : '待检查'}
+                {editableDraft.status === 'ready' ? <Check size={14} /> : <X size={14} />}
+                {editableDraft.status === 'ready' ? '可发布' : '待审核'}
               </div>
             </div>
 
@@ -554,6 +730,14 @@ export function App() {
             <div className="preview-actions">
               <button
                 type="button"
+                disabled={isSavingDraft || editableDraft.status === 'ready'}
+                onClick={() => void handleApproveDraft()}
+              >
+                {isSavingDraft ? <Loader2 className="spin" size={16} /> : <Check size={16} />}
+                审核通过
+              </button>
+              <button
+                type="button"
                 disabled={isSavingDraft}
                 onClick={() => void handleSaveDraft()}
               >
@@ -595,10 +779,10 @@ export function App() {
           className="publish-all"
           type="button"
           disabled={isPublishing || !currentSession}
-          onClick={() => void handleSimulateAll()}
+          onClick={() => void handlePublishAll()}
         >
           <Send size={16} />
-          一键模拟发布全部平台
+          一键真实发布全部平台
         </button>
 
         <section className="events">
@@ -611,91 +795,30 @@ export function App() {
               </div>
             ))
           ) : (
-            <p className="empty-text">模拟发布后会记录在这里</p>
+            <p className="empty-text">暂无发布记录</p>
           )}
         </section>
       </aside>
-
-      {isSettingsOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section className="settings-modal" aria-label="模型设置">
-            <div className="modal-heading">
-              <div>
-                <h2>模型设置</h2>
-                <p>API Key 会保存到本地 SQLite, 主进程会优先使用系统安全存储加密</p>
-              </div>
-              <button type="button" onClick={() => setIsSettingsOpen(false)} aria-label="关闭">
-                <X size={18} />
-              </button>
-            </div>
-
-            <label className="field">
-              <span>模型</span>
-              <input value={DEEPSEEK_MODEL} disabled />
-            </label>
-
-            <label className="field">
-              <span>DeepSeek API 地址</span>
-              <input
-                value={settingsBaseUrl}
-                onChange={(event) => setSettingsBaseUrl(event.target.value)}
-                placeholder="https://api.deepseek.com"
-              />
-            </label>
-
-            <label className="field">
-              <span>DeepSeek API Key</span>
-              <input
-                value={settingsApiKey}
-                onChange={(event) => setSettingsApiKey(event.target.value)}
-                placeholder={
-                  settings?.apiKeyConfigured
-                    ? `已保存 ${settings.maskedApiKey}, 留空保持不变`
-                    : '粘贴 DeepSeek API Key'
-                }
-                type="password"
-              />
-            </label>
-
-            <div className="settings-status">
-              {settings?.apiKeyConfigured
-                ? `当前已配置 ${settings.maskedApiKey}`
-                : '当前未配置 API Key, 会使用本地规则生成'}
-            </div>
-
-            <div className="modal-actions">
-              {settings?.apiKeyConfigured ? (
-                <button
-                  className="danger-button"
-                  type="button"
-                  disabled={isSavingSettings}
-                  onClick={() => void handleClearApiKey()}
-                >
-                  清空密钥
-                </button>
-              ) : null}
-              <button type="button" onClick={() => setIsSettingsOpen(false)}>
-                取消
-              </button>
-              <button
-                className="primary-button"
-                type="button"
-                disabled={isSavingSettings}
-                onClick={() => void handleSaveSettings()}
-              >
-                {isSavingSettings ? <Loader2 className="spin" size={16} /> : <Check size={16} />}
-                保存设置
-              </button>
-            </div>
-          </section>
-        </div>
       ) : null}
+
+      {notice ? <div className="toast">{notice}</div> : null}
     </div>
   );
 }
 
 function getPlatformName(platformId: PlatformId): string {
   return PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
+}
+
+function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountConfig {
+  return {
+    platformId,
+    enabled: false,
+    configured: false,
+    status: 'not-configured',
+    statusMessage: '未配置账号',
+    maskedFields: {},
+  };
 }
 
 function getPublishModeLabel(mode: PublishMode): string {
