@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { AppIcon } from './components/AppIcon';
 import {
   createLocalDrafts,
   formatDraftForClipboard,
@@ -53,6 +54,7 @@ const MIN_WORKSPACE_WIDTH = 460;
 const PREVIEW_MIN_WIDTH = 340;
 const PREVIEW_MAX_WIDTH = 760;
 const RESIZER_WIDTH = 8;
+const NOTICE_TTL_MS = 5000;
 
 const PLATFORM_CONFIG_LINKS: Record<
   PlatformId,
@@ -143,7 +145,7 @@ export function App() {
       return;
     }
 
-    const timer = window.setTimeout(() => setNotice(''), 3000);
+    const timer = window.setTimeout(() => setNotice(''), NOTICE_TTL_MS);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
@@ -983,7 +985,9 @@ export function App() {
     >
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">P</div>
+          <div className="brand-mark" aria-hidden="true">
+            <AppIcon />
+          </div>
           <div>
             <strong>PostPilot</strong>
             <span>创作者发布助手</span>

@@ -1,0 +1,88 @@
+export function AppIcon() {
+  return (
+    <svg
+      viewBox="0 0 256 256"
+      width="100%"
+      height="100%"
+      aria-hidden="true"
+      focusable="false"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect
+        x="12"
+        y="12"
+        width="232"
+        height="232"
+        rx="36"
+        stroke="#111111"
+        strokeWidth="14"
+        fill="white"
+      />
+      <g fill="none" stroke="#111111" strokeLinecap="round">
+        <line x1="128" y1="44" x2="128" y2="90" strokeWidth="10" />
+        <line x1="128" y1="128" x2="128" y2="212" strokeWidth="10" />
+        <line x1="44" y1="128" x2="90" y2="128" strokeWidth="10" />
+        <line x1="166" y1="128" x2="212" y2="128" strokeWidth="10" />
+        <line x1="90" y1="128" x2="128" y2="128" strokeWidth="8" />
+        <line x1="128" y1="128" x2="166" y2="128" strokeWidth="8" />
+      </g>
+      <g fill="#111111">
+        <circle cx="128" cy="40" r="10" />
+        <circle cx="128" cy="216" r="10" />
+        <circle cx="40" cy="128" r="10" />
+        <circle cx="216" cy="128" r="10" />
+        <circle cx="128" cy="128" r="22" />
+      </g>
+      <path d="M128 128 L128 82" stroke="#ffffff" strokeWidth="8" strokeLinecap="round" />
+      <path
+        d="M118 90 H86 C64 90 52 112 52 132"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M138 90 H170 C192 90 204 112 204 132"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M138 128 H196"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M116 128 H58"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M128 128 L128 176"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path
+        d="M128 176 C128 197 145 212 166 212"
+        stroke="#111111"
+        strokeWidth="10"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M56 98 L73 84 L73 112 Z" fill="#111111" />
+      <path d="M200 158 L218 172 L218 144 Z" fill="#111111" />
+      <path d="M56 158 L73 172 L73 144 Z" fill="#111111" />
+      <path d="M200 98 L218 84 L218 112 Z" fill="#111111" />
+    </svg>
+  );
+}
