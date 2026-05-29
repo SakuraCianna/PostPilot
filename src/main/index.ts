@@ -7,6 +7,7 @@ import { createDatabase } from './db/database';
 import { createSessionRepository } from './db/sessionRepository';
 import { createSettingsRepository, type SecretCodec } from './db/settingsRepository';
 import { reviewContentSafety } from './services/contentReview';
+import { rewriteContentRisks } from './services/contentRewrite';
 import { generateAdaptations } from './services/deepseek';
 import { verifyOfficialAccount } from './services/officialConnectors';
 import { createPublishTask } from './services/publishers';
@@ -21,6 +22,7 @@ import {
   type PlatformId,
   type PublishMode,
   type RunContentReviewInput,
+  type RunContentRewriteInput,
   type SaveModelSettingsInput,
   type SavePlatformAccountInput,
   type UpdateDraftInput,
@@ -134,6 +136,42 @@ ipcMain.handle('review:run', async (_event, input: RunContentReviewInput) => {
   }
 
   return runAndSaveContentReview(session);
+});
+
+ipcMain.handle('review:rewrite', async (_event, input: RunContentRewriteInput) => {
+  const session = sessions.getSession(input.sessionId);
+  if (!session) {
+    throw new Error('未找到要优化的历史记录');
+  }
+  if (!session.contentReview) {
+    throw new Error('请先完成内容审查');
+  }
+  if (session.contentReview.issues.length === 0) {
+    throw new Error('当前内容未发现需要优化的风险表达');
+  }
+
+  const secret = settings.getDeepSeekSecret();
+  const result = await rewriteContentRisks({
+    content: {
+      title: session.title,
+      body: session.sourceBody,
+    },
+    drafts: session.drafts,
+    review: session.contentReview,
+    apiKey: secret.apiKey || process.env.DEEPSEEK_API_KEY,
+    baseUrl: secret.baseUrl || process.env.DEEPSEEK_BASE_URL,
+  });
+
+  return sessions.saveSession({
+    id: session.id,
+    title: session.title,
+    sourceBody: session.sourceBody,
+    drafts: result.drafts,
+    model: result.model,
+    modelStatus: result.modelStatus,
+    modelMessage: result.message,
+    contentReview: null,
+  });
 });
 
 ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptationsInput) => {

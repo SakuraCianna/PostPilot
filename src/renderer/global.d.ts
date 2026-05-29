@@ -7,6 +7,7 @@ import type {
   PublishMode,
   PublishTaskResult,
   RunContentReviewInput,
+  RunContentRewriteInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
@@ -30,6 +31,7 @@ declare global {
       verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
       updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
       runContentReview(input: RunContentReviewInput): Promise<SavedSession>;
+      rewriteContentRisks(input: RunContentRewriteInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;
       runPublishTask(input: {
         sessionId: string;

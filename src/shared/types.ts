@@ -241,6 +241,10 @@ export interface RunContentReviewInput {
   sessionId: string;
 }
 
+export interface RunContentRewriteInput {
+  sessionId: string;
+}
+
 export interface VerifyPlatformAccountResult {
   platformId: PlatformId;
   status: PlatformAccountStatus;

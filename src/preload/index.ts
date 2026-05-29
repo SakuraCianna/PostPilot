@@ -8,6 +8,7 @@ import type {
   PublishMode,
   PublishTaskResult,
   RunContentReviewInput,
+  RunContentRewriteInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
@@ -36,6 +37,8 @@ const api = {
     ipcRenderer.invoke('drafts:update', input),
   runContentReview: (input: RunContentReviewInput): Promise<SavedSession> =>
     ipcRenderer.invoke('review:run', input),
+  rewriteContentRisks: (input: RunContentRewriteInput): Promise<SavedSession> =>
+    ipcRenderer.invoke('review:rewrite', input),
   generateAdaptations: (input: GenerateAdaptationsInput): Promise<SavedSession> =>
     ipcRenderer.invoke('adaptations:generate', input),
   runPublishTask: (

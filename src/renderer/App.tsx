@@ -57,6 +57,7 @@ export function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isReviewingContent, setIsReviewingContent] = useState(false);
+  const [isRewritingContent, setIsRewritingContent] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
   const [isSavingAccount, setIsSavingAccount] = useState<PlatformId | null>(null);
@@ -166,6 +167,7 @@ export function App() {
     contentReview?.issues.filter((issue) => issue.kind === 'legal').length ?? 0;
   const valuesIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'values').length ?? 0;
+  const contentReviewHasIssues = (contentReview?.issues.length ?? 0) > 0;
   const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
   const allDraftsReadyForPublish = allDraftsReady && contentReviewAllowsPublish;
 
@@ -233,6 +235,36 @@ export function App() {
       setNotice(error instanceof Error ? error.message : '内容审查失败');
     } finally {
       setIsReviewingContent(false);
+    }
+  }
+
+  async function handleRewriteContentRisks() {
+    if (!currentSession || !contentReviewHasIssues) {
+      setNotice('请先完成内容审查并确认存在风险项');
+      return;
+    }
+
+    setIsRewritingContent(true);
+    setNotice('正在优化风险表达');
+
+    try {
+      const sessionForRewrite = await persistChangedDrafts(currentSession);
+      if (!sessionForRewrite.contentReview?.issues.length) {
+        throw new Error('请先完成内容审查');
+      }
+
+      const rewritten = await window.postPilot.rewriteContentRisks({
+        sessionId: sessionForRewrite.id,
+      });
+      setCurrentSession(rewritten);
+      setDraftEdits({});
+      setDraftViewMode('preview');
+      await refreshSessions();
+      setNotice('风险表达已优化, 请重新审核平台草稿并再次进行内容审查');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '风险表达优化失败');
+    } finally {
+      setIsRewritingContent(false);
     }
   }
 
@@ -824,25 +856,48 @@ export function App() {
                   <span>内容审查</span>
                   <strong>{getContentReviewStatusText(contentReview?.status)}</strong>
                 </div>
-                <button
-                  type="button"
-                  disabled={isReviewingContent || !currentSession}
-                  onClick={() => void handleRunContentReview()}
-                >
-                  {isReviewingContent ? (
-                    <Loader2 className="spin" size={15} />
-                  ) : contentReview?.status === 'passed' ? (
-                    <ShieldCheck size={15} />
-                  ) : (
-                    <ShieldAlert size={15} />
-                  )}
-                  AI 审查
-                </button>
+                <div className="content-review-actions">
+                  <button
+                    type="button"
+                    disabled={isReviewingContent || isRewritingContent || !currentSession}
+                    onClick={() => void handleRunContentReview()}
+                  >
+                    {isReviewingContent ? (
+                      <Loader2 className="spin" size={15} />
+                    ) : contentReview?.status === 'passed' ? (
+                      <ShieldCheck size={15} />
+                    ) : (
+                      <ShieldAlert size={15} />
+                    )}
+                    AI 审查
+                  </button>
+                  <button
+                    className="rewrite-risk-button"
+                    type="button"
+                    disabled={
+                      isRewritingContent ||
+                      isReviewingContent ||
+                      !currentSession ||
+                      !contentReviewHasIssues
+                    }
+                    onClick={() => void handleRewriteContentRisks()}
+                  >
+                    {isRewritingContent ? (
+                      <Loader2 className="spin" size={15} />
+                    ) : (
+                      <Sparkles size={15} />
+                    )}
+                    一键优化
+                  </button>
+                </div>
               </div>
               <div className="content-review-metrics">
                 <span className="legal">法律 {legalIssueCount}</span>
                 <span className="values">价值观 {valuesIssueCount}</span>
               </div>
+              {contentReviewHasIssues ? (
+                <p className="review-hint">优化后会回到待审核, 需要人工确认并重新审查</p>
+              ) : null}
               {contentReview ? (
                 selectedReviewIssues.length > 0 ? (
                   <div className="content-review-issues">

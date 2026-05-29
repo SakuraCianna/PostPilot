@@ -558,6 +558,12 @@ button:disabled {
   line-height: 1.2;
 }
 
+.content-review-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
 .content-review-heading button {
   display: inline-flex;
   align-items: center;
@@ -572,6 +578,12 @@ button:disabled {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.content-review-heading .rewrite-risk-button {
+  border-color: var(--black);
+  background: var(--black);
+  color: var(--white);
 }
 
 .content-review-metrics {
@@ -654,11 +666,18 @@ button:disabled {
 
 .content-review-issue p,
 .content-review-issue small,
+.review-hint,
 .review-empty {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.review-hint {
+  border-radius: 8px;
+  background: rgb(0 0 0 / 5%);
+  padding: 7px 9px;
 }
 
 .draft-body,
