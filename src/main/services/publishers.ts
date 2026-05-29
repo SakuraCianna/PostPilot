@@ -105,7 +105,7 @@ export async function createPublishTask(
   }
 
   return {
-    status: 'pending',
+    status: 'failed',
     event: {
       platformId: input.draft.platformId,
       mode: input.mode,
