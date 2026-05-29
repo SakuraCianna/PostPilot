@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import {
   applyDraftValidation,
   createLocalDrafts,
@@ -49,6 +49,12 @@ PostPilot 会生成公众号, 知乎, B 站, 小红书四个平台版本。
 
 第一版默认保存历史, 并支持复制, 导出和模拟发布。`;
 
+const SIDEBAR_WIDTH = 280;
+const MIN_WORKSPACE_WIDTH = 460;
+const PREVIEW_MIN_WIDTH = 340;
+const PREVIEW_MAX_WIDTH = 760;
+const RESIZER_WIDTH = 10;
+
 export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSession, setCurrentSession] = useState<SavedSession | null>(null);
@@ -70,12 +76,22 @@ export function App() {
   const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
   const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
   const [notice, setNotice] = useState('');
+  const [previewWidth, setPreviewWidth] = useState(() => getDefaultPreviewWidth());
 
   useEffect(() => {
     window.postPilot.getBootstrap().then((payload) => {
       setSessions(payload.sessions);
       setAccountConfigs(payload.accountConfigs);
     });
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setPreviewWidth((current) => clampPreviewWidth(current));
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const previewDrafts = useMemo(() => {
@@ -181,6 +197,9 @@ export function App() {
   const contentReviewHasIssues = (contentReview?.issues.length ?? 0) > 0;
   const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
   const canRunPublishAll = allDraftsReady && contentReviewAllowsPublish && publishReadiness.canRunPublishAll;
+  const shellStyle = {
+    '--preview-width': `${previewWidth}px`,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!selectedDraft) {
@@ -303,6 +322,23 @@ export function App() {
     setSelectedPlatform('wechat');
     setDraftViewMode('preview');
     setNotice('已创建新的本地草稿');
+  }
+
+  function handlePreviewResizeStart() {
+    document.body.classList.add('is-resizing-preview');
+
+    function handlePointerMove(event: PointerEvent) {
+      setPreviewWidth(clampPreviewWidth(window.innerWidth - event.clientX));
+    }
+
+    function handlePointerUp() {
+      document.body.classList.remove('is-resizing-preview');
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
   }
 
   async function handleCopy(draft: PlatformDraft) {
@@ -713,7 +749,10 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell ${currentView === 'settings' ? 'settings-mode' : ''}`}>
+    <div
+      className={`app-shell ${currentView === 'settings' ? 'settings-mode' : ''}`}
+      style={shellStyle}
+    >
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">P</div>
@@ -812,6 +851,16 @@ export function App() {
         </section>
         )}
       </main>
+
+      {currentView === 'editor' ? (
+      <button
+        className="pane-resizer"
+        type="button"
+        aria-label="调整右侧预览宽度"
+        aria-orientation="vertical"
+        onPointerDown={handlePreviewResizeStart}
+      />
+      ) : null}
 
       {currentView === 'editor' ? (
       <aside className="preview-pane">
@@ -1118,6 +1167,22 @@ export function App() {
       {notice ? <div className="toast">{notice}</div> : null}
     </div>
   );
+}
+
+function getDefaultPreviewWidth(): number {
+  if (typeof window === 'undefined') {
+    return 430;
+  }
+  return clampPreviewWidth(Math.round(window.innerWidth * 0.25));
+}
+
+function clampPreviewWidth(value: number): number {
+  if (typeof window === 'undefined') {
+    return value;
+  }
+  const maxByViewport =
+    window.innerWidth - SIDEBAR_WIDTH - MIN_WORKSPACE_WIDTH - RESIZER_WIDTH;
+  return Math.max(PREVIEW_MIN_WIDTH, Math.min(value, PREVIEW_MAX_WIDTH, maxByViewport));
 }
 
 function getPlatformName(platformId: PlatformId): string {
