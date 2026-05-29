@@ -20,7 +20,7 @@ npm run build
 npm run dist
 ```
 
-`npm run dist` 会生成 Windows x64 zip 发行包, 输出目录为 `dist-release`。zip 包用于当前未签名内测发布, 后续接入代码签名证书和专门构建机后再增加安装器目标。
+`npm run dist` 会生成 Windows x64 MSI 安装包, 输出目录为 `dist-release`。当前 MSI 为未签名内测包, 后续接入代码签名证书后可减少 Windows 安全提示。
 
 ## 创建 GitHub Release
 
@@ -48,5 +48,5 @@ PostPilot v0.1.0
 如果使用 GitHub CLI, 可先创建草稿发布:
 
 ```powershell
-gh release create v0.1.0 dist-release\PostPilot-0.1.0-x64.zip --target release --title "PostPilot v0.1.0" --notes-file RELEASE_NOTES.md --draft
+gh release create v0.1.0 dist-release\PostPilot-0.1.0-x64.msi --target release --title "PostPilot v0.1.0" --notes-file RELEASE_NOTES.md --draft
 ```

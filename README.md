@@ -32,7 +32,8 @@ PostPilot 是一个本地桌面端创作者发布助手。用户输入一份原�
 - marked, Markdown 内容渲染
 - DOMPurify, HTML 预览净化
 - Vitest, 单元测试
-- electron-builder, Windows zip 发行包打包
+- electron-builder, Windows MSI 安装包打包
+- 自定义 Windows 应用图标用于 MSI 安装包
 
 ## 原创功能部分
 
