@@ -156,7 +156,7 @@ function mergeDrafts(aiDrafts: PlatformDraft[], localDrafts: PlatformDraft[]): P
       localDrafts.find((draft) => draft.platformId === adapter.id),
   )
     .filter((draft): draft is PlatformDraft => Boolean(draft))
-    .map((draft) => normalizeDraft(draft));
+    .map((draft) => normalizeDraft({ ...draft, status: 'needs-review' }));
 }
 
 function toChineseDeepSeekError(error: unknown): string {

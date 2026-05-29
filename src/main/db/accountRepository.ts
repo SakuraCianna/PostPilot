@@ -74,17 +74,22 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
     },
 
     saveAccountConfig(input: SavePlatformAccountInput): PlatformAccountConfig {
-      const validation = validateAccountFields(input.platformId, input.fields);
+      const existing = getRow(input.platformId);
+      const existingFields = existing ? parseFields(existing.fields_json) : {};
+      const fields = {
+        ...existingFields,
+        ...Object.fromEntries(
+          Object.entries(input.fields)
+            .map(([key, value]) => [key, value.trim()])
+            .filter(([, value]) => value),
+        ),
+      };
+      const validation = validateAccountFields(input.platformId, fields);
       if (!validation.valid) {
         throw new Error(validation.errors.join('；'));
       }
 
       const now = new Date().toISOString();
-      const fields = Object.fromEntries(
-        Object.entries(input.fields)
-          .map(([key, value]) => [key, value.trim()])
-          .filter(([, value]) => value),
-      );
 
       db.prepare(`
         INSERT INTO account_configs (

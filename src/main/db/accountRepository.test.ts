@@ -68,4 +68,41 @@ describe('account repository', () => {
 
     db.close();
   });
+
+  it('keeps existing secret fields when a later save leaves them blank', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-accounts-'));
+    tempDirs.push(dir);
+    const db = createDatabase(path.join(dir, 'postpilot.sqlite'));
+    const repo = createAccountRepository(db, {
+      encrypt: (value) => value,
+      decrypt: (value) => value,
+    });
+
+    repo.saveAccountConfig({
+      platformId: 'wechat',
+      enabled: true,
+      fields: {
+        appId: 'wx123',
+        appSecret: 'secret',
+        thumbMediaId: 'media',
+      },
+    });
+    repo.saveAccountConfig({
+      platformId: 'wechat',
+      enabled: true,
+      fields: {
+        appId: 'wx456',
+        appSecret: '',
+        thumbMediaId: '',
+      },
+    });
+
+    expect(repo.getSecretAccountConfig('wechat')?.fields).toEqual({
+      appId: 'wx456',
+      appSecret: 'secret',
+      thumbMediaId: 'media',
+    });
+
+    db.close();
+  });
 });
