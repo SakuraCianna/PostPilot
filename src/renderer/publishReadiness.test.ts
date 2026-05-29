@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest';
+import { PLATFORM_ADAPTERS } from '../shared/platformAdapters';
+import type {
+  ContentReviewResult,
+  PlatformAccountConfig,
+  PlatformDraft,
+  SavedSession,
+} from '../shared/types';
+import { createPublishReadiness } from './publishReadiness';
+
+const drafts: PlatformDraft[] = PLATFORM_ADAPTERS.map((adapter) => ({
+  platformId: adapter.id,
+  title: `${adapter.displayName} 标题`,
+  summary: '摘要',
+  body: '正文',
+  hashtags: [],
+  status: 'ready',
+}));
+
+const passedReview: ContentReviewResult = {
+  status: 'passed',
+  model: 'deepseek-v4-flash',
+  modelStatus: 'local-fallback',
+  message: '未发现明显风险',
+  reviewedAt: '2026-05-29T08:00:00.000Z',
+  issues: [],
+};
+
+const session: SavedSession = {
+  id: 'session-1',
+  title: '发布测试',
+  sourceBody: '正文',
+  drafts,
+  model: 'deepseek-v4-flash',
+  modelStatus: 'local-fallback',
+  modelMessage: '本地生成',
+  createdAt: '2026-05-29T07:00:00.000Z',
+  updatedAt: '2026-05-29T08:00:00.000Z',
+  publishEvents: [],
+  contentReview: passedReview,
+};
+
+const authorizedAccounts: PlatformAccountConfig[] = PLATFORM_ADAPTERS.map((adapter) => ({
+  platformId: adapter.id,
+  enabled: true,
+  configured: true,
+  status: 'authorized',
+  statusMessage: '授权校验通过',
+  maskedFields: {},
+}));
+
+describe('publish readiness', () => {
+  it('blocks publish all when review is missing', () => {
+    const readiness = createPublishReadiness({
+      session: {
+        ...session,
+        contentReview: undefined,
+      },
+      adapters: PLATFORM_ADAPTERS,
+      accounts: authorizedAccounts,
+    });
+
+    expect(readiness.canRunPublishAll).toBe(false);
+    expect(readiness.items).toContainEqual(
+      expect.objectContaining({
+        id: 'content-review',
+        state: 'blocked',
+        action: '先运行 AI 审查',
+      }),
+    );
+  });
+
+  it('allows supported official platforms and warns about unsupported platforms', () => {
+    const readiness = createPublishReadiness({
+      session,
+      adapters: PLATFORM_ADAPTERS,
+      accounts: authorizedAccounts,
+    });
+
+    expect(readiness.canRunPublishAll).toBe(true);
+    expect(readiness.publishablePlatformIds).toEqual(['wechat', 'bilibili']);
+    expect(readiness.items).toContainEqual(
+      expect.objectContaining({
+        id: 'platform-coverage',
+        state: 'warning',
+        detail: '知乎, 小红书需要导出或浏览器辅助',
+      }),
+    );
+  });
+
+  it('blocks supported official platforms when account is not authorized', () => {
+    const readiness = createPublishReadiness({
+      session,
+      adapters: PLATFORM_ADAPTERS,
+      accounts: authorizedAccounts.map((account) =>
+        account.platformId === 'wechat'
+          ? { ...account, status: 'configured', statusMessage: '待授权' }
+          : account,
+      ),
+    });
+
+    expect(readiness.canRunPublishAll).toBe(false);
+    expect(readiness.items).toContainEqual(
+      expect.objectContaining({
+        id: 'account-auth',
+        state: 'blocked',
+        detail: '微信公众号待授权',
+      }),
+    );
+  });
+});

@@ -29,6 +29,7 @@ import {
 } from '../shared/platformAdapters';
 import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
+import { createPublishReadiness, type PublishReadinessItem } from './publishReadiness';
 import { createPublishTimeline, type PublishTimelineItem } from './publishTimeline';
 import { createReadinessSteps } from './productStatus';
 import {
@@ -163,13 +164,23 @@ export function App() {
     [currentSession],
   );
 
+  const publishReadiness = useMemo(
+    () =>
+      createPublishReadiness({
+        session: currentSession,
+        adapters: PLATFORM_ADAPTERS,
+        accounts: accountConfigs,
+      }),
+    [accountConfigs, currentSession],
+  );
+
   const legalIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'legal').length ?? 0;
   const valuesIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'values').length ?? 0;
   const contentReviewHasIssues = (contentReview?.issues.length ?? 0) > 0;
   const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
-  const allDraftsReadyForPublish = allDraftsReady && contentReviewAllowsPublish;
+  const canRunPublishAll = allDraftsReady && contentReviewAllowsPublish && publishReadiness.canRunPublishAll;
 
   useEffect(() => {
     if (!selectedDraft) {
@@ -352,7 +363,14 @@ export function App() {
     try {
       const sessionForPublish = await persistChangedDrafts(currentSession);
       let updated: SavedSession | null = sessionForPublish;
-      for (const draft of sessionForPublish.drafts) {
+      const publishableDrafts = sessionForPublish.drafts.filter((draft) =>
+        publishReadiness.publishablePlatformIds.includes(draft.platformId),
+      );
+      if (publishableDrafts.length === 0) {
+        throw new Error('当前没有可通过官方接口发布的平台');
+      }
+
+      for (const draft of publishableDrafts) {
         const result = await window.postPilot.runPublishTask({
           sessionId: sessionForPublish.id,
           platformId: draft.platformId,
@@ -364,7 +382,7 @@ export function App() {
         setCurrentSession(updated);
       }
       await refreshSessions();
-      setNotice('真实发布任务已执行');
+      setNotice(`已执行 ${publishableDrafts.length} 个官方接口发布任务`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '真实发布失败');
     } finally {
@@ -1042,6 +1060,18 @@ export function App() {
             <span>失败 {publishTimeline.summary.failed}</span>
             <span>等待 {publishTimeline.summary.ready + publishTimeline.summary.blocked}</span>
           </div>
+          <div className="publish-readiness-list">
+            {publishReadiness.items.map((item) => (
+              <div className={`publish-readiness-item ${item.state}`} key={item.id}>
+                <div>
+                  {getPublishReadinessIcon(item)}
+                  <strong>{item.label}</strong>
+                  <span>{item.detail}</span>
+                </div>
+                <small>{item.action}</small>
+              </div>
+            ))}
+          </div>
           <div className="publish-task-list">
             {publishTimeline.items.map((item) => (
               <div className={`publish-task ${item.status}`} key={item.platformId}>
@@ -1076,11 +1106,11 @@ export function App() {
         <button
           className="publish-all"
           type="button"
-          disabled={isPublishing || !currentSession || !allDraftsReadyForPublish}
+          disabled={isPublishing || !currentSession || !canRunPublishAll}
           onClick={() => void handlePublishAll()}
         >
           <Send size={16} />
-          一键真实发布全部平台
+          一键发布已接入平台
         </button>
       </aside>
       ) : null}
@@ -1159,6 +1189,16 @@ function getPublishTimelineIcon(item: PublishTimelineItem) {
     return <Loader2 className="spin" size={14} />;
   }
   return <Send size={14} />;
+}
+
+function getPublishReadinessIcon(item: PublishReadinessItem) {
+  if (item.state === 'done') {
+    return <Check size={14} />;
+  }
+  if (item.state === 'warning') {
+    return <ShieldAlert size={14} />;
+  }
+  return <X size={14} />;
 }
 
 function sanitizeDraftPreviewHtml(value: string): string {

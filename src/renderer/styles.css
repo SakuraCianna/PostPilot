@@ -944,6 +944,73 @@ button:disabled {
   text-align: center;
 }
 
+.publish-readiness-list {
+  display: grid;
+  gap: 6px;
+}
+
+.publish-readiness-item {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 9px 10px;
+}
+
+.publish-readiness-item div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.publish-readiness-item strong {
+  color: var(--black);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.publish-readiness-item span {
+  overflow: hidden;
+  color: #3d3d3d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-readiness-item small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.publish-readiness-item.done {
+  border-color: #b6dbc2;
+  background: #f7fbf8;
+}
+
+.publish-readiness-item.done svg {
+  color: #1f7a3a;
+}
+
+.publish-readiness-item.blocked {
+  border-color: #efc0bd;
+  background: #fff8f7;
+}
+
+.publish-readiness-item.blocked svg {
+  color: #c7352f;
+}
+
+.publish-readiness-item.warning {
+  border-color: #e7cf7a;
+  background: #fffdf4;
+}
+
+.publish-readiness-item.warning svg {
+  color: #8a6400;
+}
+
 .publish-task-list {
   display: grid;
   gap: 8px;
