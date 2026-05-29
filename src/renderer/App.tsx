@@ -4,6 +4,7 @@ import {
   Clipboard,
   Download,
   Eye,
+  ExternalLink,
   History,
   Loader2,
   PencilLine,
@@ -55,6 +56,44 @@ const PREVIEW_MIN_WIDTH = 340;
 const PREVIEW_MAX_WIDTH = 760;
 const RESIZER_WIDTH = 8;
 
+const PLATFORM_CONFIG_LINKS: Record<
+  PlatformId,
+  Array<{ label: string; url: string }>
+> = {
+  wechat: [
+    {
+      label: '基本配置',
+      url: 'https://mp.weixin.qq.com/',
+    },
+    {
+      label: '接口文档',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html',
+    },
+  ],
+  zhihu: [
+    {
+      label: '开放平台',
+      url: 'https://developer.zhihu.com/',
+    },
+  ],
+  bilibili: [
+    {
+      label: '开放平台',
+      url: 'https://openhome.bilibili.com/doc',
+    },
+  ],
+  xiaohongshu: [
+    {
+      label: '开放平台',
+      url: 'https://school.xiaohongshu.com/en/open/quick-start/summary.html',
+    },
+    {
+      label: '服务商接口',
+      url: 'https://miniapp.xiaohongshu.com/third/api-3rd/post-api-rmp-tp-token',
+    },
+  ],
+};
+
 export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSession, setCurrentSession] = useState<SavedSession | null>(null);
@@ -72,6 +111,9 @@ export function App() {
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
   const [accountForms, setAccountForms] = useState<
     Partial<Record<PlatformId, Record<string, string>>>
+  >({});
+  const [customAccountFields, setCustomAccountFields] = useState<
+    Partial<Record<PlatformId, Array<{ id: string; key: string; value: string }>>>
   >({});
   const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
   const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
@@ -93,6 +135,15 @@ export function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setNotice(''), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const previewDrafts = useMemo(() => {
     return currentSession?.drafts ?? createLocalDrafts({ title, body });
@@ -432,10 +483,18 @@ export function App() {
       const currentConfig = accountConfigs.find((config) => config.platformId === platformId);
       const form = accountForms[platformId] ?? {};
       const { enabled, ...fields } = form;
+      const customFields = Object.fromEntries(
+        (customAccountFields[platformId] ?? [])
+          .map((field) => [field.key.trim(), field.value.trim()])
+          .filter(([key, value]) => key && value),
+      );
       const saved = await window.postPilot.saveAccountConfig({
         platformId,
         enabled: enabled ? enabled === 'true' : currentConfig?.enabled ?? true,
-        fields,
+        fields: {
+          ...fields,
+          ...customFields,
+        },
       });
       setAccountConfigs((current) =>
         current.map((config) => (config.platformId === platformId ? saved : config)),
@@ -443,6 +502,10 @@ export function App() {
       setAccountForms((current) => ({
         ...current,
         [platformId]: {},
+      }));
+      setCustomAccountFields((current) => ({
+        ...current,
+        [platformId]: [],
       }));
       setNotice(`${getPlatformName(platformId)}账号配置已保存`);
     } catch (error) {
@@ -475,6 +538,10 @@ export function App() {
         ...current,
         [platformId]: {},
       }));
+      setCustomAccountFields((current) => ({
+        ...current,
+        [platformId]: [],
+      }));
       setNotice(`${getPlatformName(platformId)}账号配置已删除`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '删除账号配置失败');
@@ -488,6 +555,40 @@ export function App() {
         ...current[platformId],
         [key]: value,
       },
+    }));
+  }
+
+  function addCustomAccountField(platformId: PlatformId) {
+    setCustomAccountFields((current) => ({
+      ...current,
+      [platformId]: [
+        ...(current[platformId] ?? []),
+        {
+          id: crypto.randomUUID(),
+          key: '',
+          value: '',
+        },
+      ],
+    }));
+  }
+
+  function updateCustomAccountField(
+    platformId: PlatformId,
+    id: string,
+    patch: Partial<{ key: string; value: string }>,
+  ) {
+    setCustomAccountFields((current) => ({
+      ...current,
+      [platformId]: (current[platformId] ?? []).map((field) =>
+        field.id === id ? { ...field, ...patch } : field,
+      ),
+    }));
+  }
+
+  function removeCustomAccountField(platformId: PlatformId, id: string) {
+    setCustomAccountFields((current) => ({
+      ...current,
+      [platformId]: (current[platformId] ?? []).filter((field) => field.id !== id),
     }));
   }
 
@@ -643,12 +744,28 @@ export function App() {
               accountConfigs.find((item) => item.platformId === adapter.id) ??
               createFallbackAccountConfig(adapter.id);
             const form = accountForms[adapter.id] ?? {};
+            const customFields = customAccountFields[adapter.id] ?? [];
 
             return (
               <section className="account-card" key={adapter.id}>
                 <div className="account-heading">
                   <div>
-                    <h2>{adapter.displayName}</h2>
+                    <div className="account-title-row">
+                      <h2>{adapter.displayName}</h2>
+                      <div className="account-doc-links">
+                        {PLATFORM_CONFIG_LINKS[adapter.id].map((link) => (
+                          <a
+                            href={link.url}
+                            key={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink size={13} />
+                            {link.label}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
                     <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
                   </div>
                   <label className="account-toggle">
@@ -659,7 +776,8 @@ export function App() {
                         updateAccountField(adapter.id, 'enabled', String(event.target.checked))
                       }
                     />
-                    启用
+                    <span aria-hidden="true" />
+                    <strong>启用</strong>
                   </label>
                 </div>
 
@@ -703,6 +821,51 @@ export function App() {
                       )}
                     </label>
                   ))}
+                </div>
+
+                <div className="custom-config-section">
+                  <div className="custom-config-heading">
+                    <span>自定义配置</span>
+                    <button type="button" onClick={() => addCustomAccountField(adapter.id)}>
+                      <Plus size={14} />
+                      添加配置
+                    </button>
+                  </div>
+                  {customFields.length > 0 ? (
+                    <div className="custom-config-list">
+                      {customFields.map((field) => (
+                        <div className="custom-config-row" key={field.id}>
+                          <input
+                            value={field.key}
+                            placeholder="配置名, 如 workspaceId"
+                            onChange={(event) =>
+                              updateCustomAccountField(adapter.id, field.id, {
+                                key: event.target.value,
+                              })
+                            }
+                          />
+                          <input
+                            value={field.value}
+                            placeholder="配置值"
+                            onChange={(event) =>
+                              updateCustomAccountField(adapter.id, field.id, {
+                                value: event.target.value,
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            aria-label="删除自定义配置"
+                            onClick={() => removeCustomAccountField(adapter.id, field.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="custom-config-empty">可添加平台要求的额外参数</p>
+                  )}
                 </div>
 
                 <div className="account-actions">

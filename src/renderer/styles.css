@@ -1303,9 +1303,41 @@ button:disabled {
 }
 
 .account-heading h2 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 16px;
   letter-spacing: 0;
+}
+
+.account-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.account-doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-doc-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: #3d3d3d;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.account-doc-links a:hover {
+  background: var(--black);
+  color: var(--white);
 }
 
 .account-state {
@@ -1345,14 +1377,132 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--muted);
+  color: #c7352f;
   font-size: 13px;
   font-weight: 650;
+}
+
+.account-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.account-toggle > span {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #f3c4c0;
+  box-shadow: inset 0 0 0 1px #ef9f99;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.account-toggle > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  content: "";
+  transition: transform 140ms ease;
+}
+
+.account-toggle input:checked + span {
+  background: #b6dbc2;
+  box-shadow: inset 0 0 0 1px #78bd8b;
+}
+
+.account-toggle input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.account-toggle input:checked ~ strong {
+  color: #1f7a3a;
 }
 
 .account-fields {
   display: grid;
   gap: 12px;
+}
+
+.custom-config-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.custom-config-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.custom-config-heading span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.custom-config-heading button,
+.custom-config-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--black);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.custom-config-list {
+  display: grid;
+  gap: 8px;
+}
+
+.custom-config-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.9fr) minmax(160px, 1fr) 38px;
+  gap: 8px;
+}
+
+.custom-config-row input {
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  padding: 0 10px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 13px;
+}
+
+.custom-config-row button {
+  color: #c7352f;
+  padding: 0;
+}
+
+.custom-config-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .account-actions {
