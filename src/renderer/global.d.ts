@@ -1,7 +1,9 @@
 import type {
   BootstrapPayload,
   GenerateAdaptationsInput,
+  ModelSettings,
   PlatformId,
+  SaveModelSettingsInput,
   SavedSession,
   SessionSummary,
 } from '../shared/types';
@@ -12,6 +14,8 @@ declare global {
       getBootstrap(): Promise<BootstrapPayload>;
       listSessions(): Promise<SessionSummary[]>;
       getSession(id: string): Promise<SavedSession | null>;
+      getSettings(): Promise<ModelSettings>;
+      saveSettings(input: SaveModelSettingsInput): Promise<ModelSettings>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;
       simulatePublish(input: {
         sessionId: string;

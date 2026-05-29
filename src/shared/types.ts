@@ -101,4 +101,22 @@ export interface BootstrapPayload {
   model: DeepSeekModel;
   platforms: PlatformAdapter[];
   sessions: SessionSummary[];
+  settings: ModelSettings;
+}
+
+export interface ModelSettings {
+  model: DeepSeekModel;
+  baseUrl: string;
+  apiKeyConfigured: boolean;
+  maskedApiKey: string;
+}
+
+export interface SaveModelSettingsInput {
+  apiKey?: string;
+  baseUrl: string;
+}
+
+export interface DeepSeekSecret {
+  apiKey: string;
+  baseUrl: string;
 }

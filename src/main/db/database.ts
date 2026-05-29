@@ -42,6 +42,12 @@ export function createDatabase(dbPath: string): PostPilotDatabase {
 
     CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_publish_events_session_id ON publish_events(session_id);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    ) STRICT;
   `);
 
   return db;

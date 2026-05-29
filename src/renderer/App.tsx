@@ -7,7 +7,9 @@ import {
   Play,
   Plus,
   Send,
+  Settings,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -17,6 +19,7 @@ import {
 } from '../shared/platformAdapters';
 import {
   DEEPSEEK_MODEL,
+  type ModelSettings,
   type PlatformDraft,
   type PlatformId,
   type SavedSession,
@@ -37,11 +40,18 @@ export function App() {
   const [body, setBody] = useState(INITIAL_BODY);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settings, setSettings] = useState<ModelSettings | null>(null);
+  const [settingsBaseUrl, setSettingsBaseUrl] = useState('https://api.deepseek.com');
+  const [settingsApiKey, setSettingsApiKey] = useState('');
   const [notice, setNotice] = useState('本地历史已连接 SQLite, 模型固定为 deepseek-v4-flash');
 
   useEffect(() => {
     window.postPilot.getBootstrap().then((payload) => {
       setSessions(payload.sessions);
+      setSettings(payload.settings);
+      setSettingsBaseUrl(payload.settings.baseUrl);
     });
   }, []);
 
@@ -175,6 +185,48 @@ export function App() {
     }
   }
 
+  async function handleSaveSettings() {
+    setIsSavingSettings(true);
+    try {
+      const saved = await window.postPilot.saveSettings({
+        apiKey: settingsApiKey.trim() ? settingsApiKey : undefined,
+        baseUrl: settingsBaseUrl,
+      });
+      setSettings(saved);
+      setSettingsBaseUrl(saved.baseUrl);
+      setSettingsApiKey('');
+      setIsSettingsOpen(false);
+      setNotice(saved.apiKeyConfigured ? '模型设置已保存' : '模型设置已保存, API Key 已清空');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '保存模型设置失败');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }
+
+  async function handleClearApiKey() {
+    setIsSavingSettings(true);
+    try {
+      const saved = await window.postPilot.saveSettings({
+        apiKey: '',
+        baseUrl: settingsBaseUrl,
+      });
+      setSettings(saved);
+      setSettingsApiKey('');
+      setNotice('API Key 已清空');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '清空 API Key 失败');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }
+
+  function openSettings() {
+    setSettingsBaseUrl(settings?.baseUrl ?? 'https://api.deepseek.com');
+    setSettingsApiKey('');
+    setIsSettingsOpen(true);
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -222,9 +274,15 @@ export function App() {
             <h1>多平台内容适配</h1>
             <p>{notice}</p>
           </div>
-          <div className="model-pill">
-            <Sparkles size={15} />
-            {DEEPSEEK_MODEL}
+          <div className="topbar-actions">
+            <button className="settings-button" type="button" onClick={openSettings}>
+              <Settings size={15} />
+              模型设置
+            </button>
+            <div className="model-pill">
+              <Sparkles size={15} />
+              {DEEPSEEK_MODEL}
+            </div>
           </div>
         </header>
 
@@ -354,6 +412,81 @@ export function App() {
           )}
         </section>
       </aside>
+
+      {isSettingsOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="settings-modal" aria-label="模型设置">
+            <div className="modal-heading">
+              <div>
+                <h2>模型设置</h2>
+                <p>API Key 会保存到本地 SQLite, 主进程会优先使用系统安全存储加密</p>
+              </div>
+              <button type="button" onClick={() => setIsSettingsOpen(false)} aria-label="关闭">
+                <X size={18} />
+              </button>
+            </div>
+
+            <label className="field">
+              <span>模型</span>
+              <input value={DEEPSEEK_MODEL} disabled />
+            </label>
+
+            <label className="field">
+              <span>DeepSeek API 地址</span>
+              <input
+                value={settingsBaseUrl}
+                onChange={(event) => setSettingsBaseUrl(event.target.value)}
+                placeholder="https://api.deepseek.com"
+              />
+            </label>
+
+            <label className="field">
+              <span>DeepSeek API Key</span>
+              <input
+                value={settingsApiKey}
+                onChange={(event) => setSettingsApiKey(event.target.value)}
+                placeholder={
+                  settings?.apiKeyConfigured
+                    ? `已保存 ${settings.maskedApiKey}, 留空保持不变`
+                    : '粘贴 DeepSeek API Key'
+                }
+                type="password"
+              />
+            </label>
+
+            <div className="settings-status">
+              {settings?.apiKeyConfigured
+                ? `当前已配置 ${settings.maskedApiKey}`
+                : '当前未配置 API Key, 会使用本地规则生成'}
+            </div>
+
+            <div className="modal-actions">
+              {settings?.apiKeyConfigured ? (
+                <button
+                  className="danger-button"
+                  type="button"
+                  disabled={isSavingSettings}
+                  onClick={() => void handleClearApiKey()}
+                >
+                  清空密钥
+                </button>
+              ) : null}
+              <button type="button" onClick={() => setIsSettingsOpen(false)}>
+                取消
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={isSavingSettings}
+                onClick={() => void handleSaveSettings()}
+              >
+                {isSavingSettings ? <Loader2 className="spin" size={16} /> : <Check size={16} />}
+                保存设置
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -211,6 +211,7 @@ button:disabled {
 }
 
 .model-pill,
+.settings-button,
 .status {
   display: inline-flex;
   align-items: center;
@@ -226,6 +227,17 @@ button:disabled {
 
 .model-pill {
   padding: 8px 11px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-button {
+  min-height: 34px;
+  padding: 0 11px;
 }
 
 .editor-pane {
@@ -451,6 +463,115 @@ button:disabled {
 
 .spin {
   animation: spin 0.9s linear infinite;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 22%);
+  padding: 24px;
+  z-index: 30;
+}
+
+.settings-modal {
+  width: min(520px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 18px;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 18%);
+}
+
+.modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.modal-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.modal-heading p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.modal-heading button,
+.modal-actions button,
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--black);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.field input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  padding: 0 12px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 14px;
+}
+
+.field input:disabled {
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.settings-status {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.modal-actions .primary-button {
+  border-color: var(--black);
+  background: var(--black);
+  color: var(--white);
+}
+
+.danger-button {
+  margin-right: auto;
 }
 
 @keyframes spin {
