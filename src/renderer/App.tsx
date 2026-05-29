@@ -1,4 +1,5 @@
 import {
+  Activity,
   Check,
   Clipboard,
   Download,
@@ -8,6 +9,7 @@ import {
   PencilLine,
   Play,
   Plus,
+  RotateCcw,
   Save,
   Send,
   Settings,
@@ -27,6 +29,7 @@ import {
 } from '../shared/platformAdapters';
 import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
+import { createPublishTimeline, type PublishTimelineItem } from './publishTimeline';
 import { createReadinessSteps } from './productStatus';
 import {
   type ContentReviewIssue,
@@ -149,6 +152,15 @@ export function App() {
   );
 
   const allDraftsReady = approvedDraftCount === PLATFORM_ADAPTERS.length;
+
+  const publishTimeline = useMemo(
+    () =>
+      createPublishTimeline({
+        session: currentSession,
+        adapters: PLATFORM_ADAPTERS,
+      }),
+    [currentSession],
+  );
 
   const legalIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'legal').length ?? 0;
@@ -959,6 +971,53 @@ export function App() {
           <div className="empty-preview">输入内容后可查看平台预览</div>
         )}
 
+        <section className="publish-dashboard">
+          <div className="publish-dashboard-heading">
+            <div>
+              <span>发布任务中心</span>
+              <strong>{publishTimeline.summary.progress}%</strong>
+            </div>
+            <Activity size={16} />
+          </div>
+          <div className="publish-progress" aria-hidden="true">
+            <span style={{ width: `${publishTimeline.summary.progress}%` }} />
+          </div>
+          <div className="publish-summary-grid">
+            <span>完成 {publishTimeline.summary.success}</span>
+            <span>失败 {publishTimeline.summary.failed}</span>
+            <span>等待 {publishTimeline.summary.ready + publishTimeline.summary.blocked}</span>
+          </div>
+          <div className="publish-task-list">
+            {publishTimeline.items.map((item) => (
+              <div className={`publish-task ${item.status}`} key={item.platformId}>
+                <div className="publish-task-main">
+                  <div className="publish-task-title">
+                    {getPublishTimelineIcon(item)}
+                    <span>{item.platformName}</span>
+                    <strong>{item.label}</strong>
+                  </div>
+                  <p>{item.message}</p>
+                  <small>
+                    {getPublishModeLabel(item.mode)}
+                    {item.attempts > 0 ? ` · ${item.attempts} 次` : ''}
+                    {item.updatedAt ? ` · ${formatTime(item.updatedAt)}` : ''}
+                  </small>
+                </div>
+                {item.canRetry ? (
+                  <button
+                    type="button"
+                    disabled={isPublishing}
+                    onClick={() => void handleRunPublishTask(item.platformId, item.mode)}
+                  >
+                    <RotateCcw size={14} />
+                    重试
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+
         <button
           className="publish-all"
           type="button"
@@ -968,27 +1027,6 @@ export function App() {
           <Send size={16} />
           一键真实发布全部平台
         </button>
-
-        <section className="events">
-          <h3>发布记录</h3>
-          {currentSession?.publishEvents.length ? (
-            currentSession.publishEvents.slice(0, 8).map((event) => (
-              <div className={`event-row ${event.status}`} key={event.id}>
-                <div>
-                  <span>{getPlatformName(event.platformId)}</span>
-                  <strong>{event.message}</strong>
-                </div>
-                <small>
-                  {getPublishModeLabel(event.mode)}
-                  <br />
-                  {formatTime(event.createdAt)}
-                </small>
-              </div>
-            ))
-          ) : (
-            <p className="empty-text">暂无发布记录</p>
-          )}
-        </section>
       </aside>
       ) : null}
 
@@ -1053,6 +1091,19 @@ function getPublishModeIcon(mode: PublishMode) {
     return <Play size={16} />;
   }
   return <Send size={16} />;
+}
+
+function getPublishTimelineIcon(item: PublishTimelineItem) {
+  if (item.status === 'success') {
+    return <Check size={14} />;
+  }
+  if (item.status === 'failed' || item.status === 'blocked') {
+    return <X size={14} />;
+  }
+  if (item.status === 'pending') {
+    return <Loader2 className="spin" size={14} />;
+  }
+  return <Send size={14} />;
 }
 
 function sanitizeDraftPreviewHtml(value: string): string {
