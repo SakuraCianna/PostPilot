@@ -28,7 +28,7 @@ const api = {
   listAccountConfigs: (): Promise<PlatformAccountConfig[]> => ipcRenderer.invoke('accounts:list'),
   saveAccountConfig: (input: SavePlatformAccountInput): Promise<PlatformAccountConfig> =>
     ipcRenderer.invoke('accounts:save', input),
-  deleteAccountConfig: (platformId: PlatformId): Promise<PlatformAccountConfig[]> =>
+  deleteAccountConfig: (platformId: string): Promise<PlatformAccountConfig[]> =>
     ipcRenderer.invoke('accounts:delete', platformId),
   verifyAccountConfig: (
     input: VerifyPlatformAccountInput,

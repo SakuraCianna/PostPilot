@@ -17,6 +17,8 @@ const draft: PlatformDraft = {
 
 const account: PlatformAccountConfig = {
   platformId: 'wechat',
+  displayName: '微信公众号',
+  builtIn: true,
   enabled: true,
   configured: true,
   status: 'authorized',
@@ -43,6 +45,8 @@ describe('product status helpers', () => {
   it('marks account as blocked when config is missing', () => {
     const state = getAccountDisplayState({
       platformId: 'wechat',
+      displayName: '微信公众号',
+      builtIn: true,
       enabled: false,
       configured: false,
       status: 'not-configured',

@@ -27,7 +27,7 @@ declare global {
       saveSettings(input: SaveModelSettingsInput): Promise<ModelSettings>;
       listAccountConfigs(): Promise<PlatformAccountConfig[]>;
       saveAccountConfig(input: SavePlatformAccountInput): Promise<PlatformAccountConfig>;
-      deleteAccountConfig(platformId: PlatformId): Promise<PlatformAccountConfig[]>;
+      deleteAccountConfig(platformId: string): Promise<PlatformAccountConfig[]>;
       verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
       updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
       runContentReview(input: RunContentReviewInput): Promise<SavedSession>;

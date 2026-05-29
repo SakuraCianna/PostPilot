@@ -105,4 +105,36 @@ describe('account repository', () => {
 
     db.close();
   });
+
+  it('stores custom platform account configs outside built-in schemas', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-accounts-'));
+    tempDirs.push(dir);
+    const db = createDatabase(path.join(dir, 'postpilot.sqlite'));
+    const repo = createAccountRepository(db, {
+      encrypt: (value) => value,
+      decrypt: (value) => value,
+    });
+
+    const saved = repo.saveAccountConfig({
+      platformId: 'douyin',
+      displayName: '抖音',
+      enabled: true,
+      fields: {
+        accessToken: 'token-123456',
+        workspaceId: 'space-1',
+      },
+    });
+
+    expect(saved).toMatchObject({
+      platformId: 'douyin',
+      displayName: '抖音',
+      builtIn: false,
+      configured: true,
+    });
+    expect(saved.maskedFields.accessToken).toBe('tok*******56');
+    expect(repo.listAccountConfigs().some((config) => config.platformId === 'douyin')).toBe(true);
+    expect(repo.getSecretAccountConfig('douyin')?.fields.workspaceId).toBe('space-1');
+
+    db.close();
+  });
 });

@@ -5,6 +5,8 @@ import type {
   PlatformId,
 } from './types';
 
+export const CUSTOM_PLATFORM_NAME_FIELD = '__platformName';
+
 export const PLATFORM_ACCOUNT_SCHEMAS: Record<PlatformId, PlatformAccountSchema> = {
   wechat: {
     platformId: 'wechat',
@@ -58,12 +60,19 @@ export const PLATFORM_ACCOUNT_SCHEMAS: Record<PlatformId, PlatformAccountSchema>
 };
 
 export function validateAccountFields(
-  platformId: PlatformId,
+  platformId: string,
   fields: Record<string, string>,
 ): {
   valid: boolean;
   errors: string[];
 } {
+  if (!isBuiltInPlatformId(platformId)) {
+    return {
+      valid: true,
+      errors: [],
+    };
+  }
+
   const schema = PLATFORM_ACCOUNT_SCHEMAS[platformId];
   const errors = schema.fields
     .filter((field) => field.required && !fields[field.key]?.trim())
@@ -76,9 +85,17 @@ export function validateAccountFields(
 }
 
 export function maskAccountFields(
-  platformId: PlatformId,
+  platformId: string,
   fields: Record<string, string>,
 ): Record<string, string> {
+  if (!isBuiltInPlatformId(platformId)) {
+    return Object.fromEntries(
+      Object.entries(fields)
+        .filter(([key]) => key !== CUSTOM_PLATFORM_NAME_FIELD)
+        .map(([key, value]) => [key, shouldMaskField(key, false) ? maskSecret(value) : value]),
+    );
+  }
+
   const schema = PLATFORM_ACCOUNT_SCHEMAS[platformId];
   return Object.fromEntries(
     schema.fields
@@ -95,12 +112,18 @@ export function maskAccountFields(
 export function createEmptyAccountConfig(platformId: PlatformId): PlatformAccountConfig {
   return {
     platformId,
+    displayName: PLATFORM_ACCOUNT_SCHEMAS[platformId].displayName,
+    builtIn: true,
     enabled: false,
     configured: false,
     status: 'not-configured',
     statusMessage: '未配置账号',
     maskedFields: {},
   };
+}
+
+export function isBuiltInPlatformId(platformId: string): platformId is PlatformId {
+  return Object.hasOwn(PLATFORM_ACCOUNT_SCHEMAS, platformId);
 }
 
 export function accountStatusMessage(status: PlatformAccountStatus): string {
@@ -118,7 +141,14 @@ function formatFieldLabelForMessage(label: string): string {
 }
 
 function shouldMaskField(key: string, secret: boolean): boolean {
-  return secret || ['appId', 'clientId', 'appKey'].includes(key);
+  const normalizedKey = key.toLowerCase();
+  return (
+    secret ||
+    ['appid', 'clientid', 'appkey'].includes(normalizedKey) ||
+    normalizedKey.includes('secret') ||
+    normalizedKey.includes('token') ||
+    normalizedKey.includes('key')
+  );
 }
 
 function maskSecret(value: string): string {

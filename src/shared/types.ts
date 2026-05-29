@@ -211,7 +211,9 @@ export interface PlatformAccountSchema {
 }
 
 export interface PlatformAccountConfig {
-  platformId: PlatformId;
+  platformId: string;
+  displayName: string;
+  builtIn: boolean;
   enabled: boolean;
   configured: boolean;
   status: PlatformAccountStatus;
@@ -222,19 +224,20 @@ export interface PlatformAccountConfig {
 }
 
 export interface SecretPlatformAccountConfig {
-  platformId: PlatformId;
+  platformId: string;
   enabled: boolean;
   fields: Record<string, string>;
 }
 
 export interface SavePlatformAccountInput {
-  platformId: PlatformId;
+  platformId: string;
+  displayName?: string;
   enabled: boolean;
   fields: Record<string, string>;
 }
 
 export interface VerifyPlatformAccountInput {
-  platformId: PlatformId;
+  platformId: string;
 }
 
 export interface RunContentReviewInput {
@@ -246,7 +249,7 @@ export interface RunContentRewriteInput {
 }
 
 export interface VerifyPlatformAccountResult {
-  platformId: PlatformId;
+  platformId: string;
   status: PlatformAccountStatus;
   message: string;
   checkedAt: string;

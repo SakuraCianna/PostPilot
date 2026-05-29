@@ -1277,6 +1277,62 @@ button:disabled {
   line-height: 1;
 }
 
+.custom-platform-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 14px;
+}
+
+.custom-platform-panel div {
+  display: grid;
+  gap: 4px;
+}
+
+.custom-platform-panel strong {
+  color: var(--black);
+  font-size: 15px;
+}
+
+.custom-platform-panel span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.custom-platform-panel input {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  padding: 0 11px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 13px;
+}
+
+.custom-platform-panel button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  border: 1px solid var(--black);
+  border-radius: 8px;
+  background: var(--black);
+  color: var(--white);
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .settings-grid {
   display: grid;
   align-items: start;
@@ -1338,6 +1394,34 @@ button:disabled {
 .account-doc-links a:hover {
   background: var(--black);
   color: var(--white);
+}
+
+.custom-platform-badge {
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.custom-platform-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.custom-platform-meta code {
+  border-radius: 999px;
+  background: var(--soft);
+  color: #3d3d3d;
+  padding: 4px 7px;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
 }
 
 .account-state {
@@ -1582,7 +1666,8 @@ button:disabled {
   }
 
   .settings-grid,
-  .settings-summary {
+  .settings-summary,
+  .custom-platform-panel {
     grid-template-columns: 1fr;
   }
 

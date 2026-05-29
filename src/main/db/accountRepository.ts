@@ -1,7 +1,9 @@
 import {
+  CUSTOM_PLATFORM_NAME_FIELD,
   PLATFORM_ACCOUNT_SCHEMAS,
   accountStatusMessage,
   createEmptyAccountConfig,
+  isBuiltInPlatformId,
   maskAccountFields,
   validateAccountFields,
 } from '../../shared/platformAccounts';
@@ -17,7 +19,7 @@ import type { PostPilotDatabase } from './database';
 import type { SecretCodec } from './settingsRepository';
 
 interface AccountConfigRow {
-  platform_id: PlatformId;
+  platform_id: string;
   enabled: 0 | 1;
   fields_json: string;
   auth_status: PlatformAccountStatus;
@@ -29,8 +31,13 @@ interface AccountConfigRow {
 export function createAccountRepository(db: PostPilotDatabase, codec: SecretCodec) {
   function mapRow(row: AccountConfigRow): PlatformAccountConfig {
     const fields = parseFields(row.fields_json);
+    const builtIn = isBuiltInPlatformId(row.platform_id);
     return {
       platformId: row.platform_id,
+      displayName: builtIn
+        ? PLATFORM_ACCOUNT_SCHEMAS[row.platform_id as PlatformId].displayName
+        : fields[CUSTOM_PLATFORM_NAME_FIELD] || row.platform_id,
+      builtIn,
       enabled: row.enabled === 1,
       configured: Object.keys(fields).length > 0,
       status: row.auth_status,
@@ -41,7 +48,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
     };
   }
 
-  function getRow(platformId: PlatformId): AccountConfigRow | null {
+  function getRow(platformId: string): AccountConfigRow | null {
     return (
       (db
         .prepare('SELECT * FROM account_configs WHERE platform_id = ?')
@@ -55,13 +62,21 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
 
   return {
     listAccountConfigs(): PlatformAccountConfig[] {
-      return Object.keys(PLATFORM_ACCOUNT_SCHEMAS).map((platformId) => {
+      const builtInConfigs = Object.keys(PLATFORM_ACCOUNT_SCHEMAS).map((platformId) => {
         const row = getRow(platformId as PlatformId);
         return row ? mapRow(row) : createEmptyAccountConfig(platformId as PlatformId);
       });
+      const customRows = db
+        .prepare('SELECT * FROM account_configs ORDER BY updated_at DESC')
+        .all() as unknown as AccountConfigRow[];
+      const customConfigs = customRows
+        .filter((row) => !isBuiltInPlatformId(row.platform_id))
+        .map((row) => mapRow(row));
+
+      return [...builtInConfigs, ...customConfigs];
     },
 
-    getSecretAccountConfig(platformId: PlatformId): SecretPlatformAccountConfig | null {
+    getSecretAccountConfig(platformId: string): SecretPlatformAccountConfig | null {
       const row = getRow(platformId);
       if (!row) {
         return null;
@@ -78,6 +93,9 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
       const existingFields = existing ? parseFields(existing.fields_json) : {};
       const fields = {
         ...existingFields,
+        ...(input.displayName?.trim()
+          ? { [CUSTOM_PLATFORM_NAME_FIELD]: input.displayName.trim() }
+          : {}),
         ...Object.fromEntries(
           Object.entries(input.fields)
             .map(([key, value]) => [key, value.trim()])
@@ -132,7 +150,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
       return mapRow(row);
     },
 
-    deleteAccountConfig(platformId: PlatformId): void {
+    deleteAccountConfig(platformId: string): void {
       db.prepare('DELETE FROM account_configs WHERE platform_id = ?').run(platformId);
     },
   };

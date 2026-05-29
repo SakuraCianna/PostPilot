@@ -106,14 +106,21 @@ export function App() {
   const [isRewritingContent, setIsRewritingContent] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
-  const [isSavingAccount, setIsSavingAccount] = useState<PlatformId | null>(null);
-  const [isVerifyingAccount, setIsVerifyingAccount] = useState<PlatformId | null>(null);
+  const [isSavingAccount, setIsSavingAccount] = useState<string | null>(null);
+  const [isVerifyingAccount, setIsVerifyingAccount] = useState<string | null>(null);
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
-  const [accountForms, setAccountForms] = useState<
-    Partial<Record<PlatformId, Record<string, string>>>
-  >({});
+  const [accountForms, setAccountForms] = useState<Partial<Record<string, Record<string, string>>>>(
+    {},
+  );
+  const [customPlatformDrafts, setCustomPlatformDrafts] = useState<
+    Array<{ platformId: string; displayName: string }>
+  >([]);
+  const [newCustomPlatform, setNewCustomPlatform] = useState({
+    platformId: '',
+    displayName: '',
+  });
   const [customAccountFields, setCustomAccountFields] = useState<
-    Partial<Record<PlatformId, Array<{ id: string; key: string; value: string }>>>
+    Partial<Record<string, Array<{ id: string; key: string; value: string }>>>
   >({});
   const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
   const [draftViewMode, setDraftViewMode] = useState<'edit' | 'preview'>('preview');
@@ -477,7 +484,7 @@ export function App() {
     }
   }
 
-  async function handleSaveAccount(platformId: PlatformId) {
+  async function handleSaveAccount(platformId: string, displayName?: string) {
     setIsSavingAccount(platformId);
     try {
       const currentConfig = accountConfigs.find((config) => config.platformId === platformId);
@@ -490,6 +497,7 @@ export function App() {
       );
       const saved = await window.postPilot.saveAccountConfig({
         platformId,
+        displayName: displayName ?? currentConfig?.displayName,
         enabled: enabled ? enabled === 'true' : currentConfig?.enabled ?? true,
         fields: {
           ...fields,
@@ -497,7 +505,9 @@ export function App() {
         },
       });
       setAccountConfigs((current) =>
-        current.map((config) => (config.platformId === platformId ? saved : config)),
+        current.some((config) => config.platformId === platformId)
+          ? current.map((config) => (config.platformId === platformId ? saved : config))
+          : [...current, saved],
       );
       setAccountForms((current) => ({
         ...current,
@@ -507,7 +517,10 @@ export function App() {
         ...current,
         [platformId]: [],
       }));
-      setNotice(`${getPlatformName(platformId)}账号配置已保存`);
+      setCustomPlatformDrafts((current) =>
+        current.filter((draft) => draft.platformId !== platformId),
+      );
+      setNotice(`${getAccountDisplayName(platformId, saved.displayName)}账号配置已保存`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '保存账号配置失败');
     } finally {
@@ -515,7 +528,7 @@ export function App() {
     }
   }
 
-  async function handleVerifyAccount(platformId: PlatformId) {
+  async function handleVerifyAccount(platformId: string) {
     setIsVerifyingAccount(platformId);
     try {
       const result = await window.postPilot.verifyAccountConfig({
@@ -530,7 +543,7 @@ export function App() {
     }
   }
 
-  async function handleDeleteAccount(platformId: PlatformId) {
+  async function handleDeleteAccount(platformId: string) {
     try {
       const configs = await window.postPilot.deleteAccountConfig(platformId);
       setAccountConfigs(configs);
@@ -542,13 +555,16 @@ export function App() {
         ...current,
         [platformId]: [],
       }));
-      setNotice(`${getPlatformName(platformId)}账号配置已删除`);
+      setCustomPlatformDrafts((current) =>
+        current.filter((draft) => draft.platformId !== platformId),
+      );
+      setNotice(`${getAccountDisplayName(platformId)}账号配置已删除`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '删除账号配置失败');
     }
   }
 
-  function updateAccountField(platformId: PlatformId, key: string, value: string) {
+  function updateAccountField(platformId: string, key: string, value: string) {
     setAccountForms((current) => ({
       ...current,
       [platformId]: {
@@ -558,7 +574,39 @@ export function App() {
     }));
   }
 
-  function addCustomAccountField(platformId: PlatformId) {
+  function addCustomPlatform() {
+    const platformId = normalizeCustomPlatformId(newCustomPlatform.platformId);
+    const displayName = newCustomPlatform.displayName.trim();
+
+    if (!displayName || !platformId) {
+      setNotice('请填写自定义平台名称和平台标识');
+      return;
+    }
+    if (
+      PLATFORM_ADAPTERS.some((adapter) => adapter.id === platformId) ||
+      accountConfigs.some((config) => config.platformId === platformId) ||
+      customPlatformDrafts.some((draft) => draft.platformId === platformId)
+    ) {
+      setNotice('平台标识已存在');
+      return;
+    }
+
+    setCustomPlatformDrafts((current) => [...current, { platformId, displayName }]);
+    setNewCustomPlatform({ platformId: '', displayName: '' });
+    setNotice('已添加自定义平台配置卡片');
+  }
+
+  function removeCustomPlatformDraft(platformId: string) {
+    setCustomPlatformDrafts((current) =>
+      current.filter((draft) => draft.platformId !== platformId),
+    );
+    setCustomAccountFields((current) => ({
+      ...current,
+      [platformId]: [],
+    }));
+  }
+
+  function addCustomAccountField(platformId: string) {
     setCustomAccountFields((current) => ({
       ...current,
       [platformId]: [
@@ -573,7 +621,7 @@ export function App() {
   }
 
   function updateCustomAccountField(
-    platformId: PlatformId,
+    platformId: string,
     id: string,
     patch: Partial<{ key: string; value: string }>,
   ) {
@@ -585,7 +633,7 @@ export function App() {
     }));
   }
 
-  function removeCustomAccountField(platformId: PlatformId, id: string) {
+  function removeCustomAccountField(platformId: string, id: string) {
     setCustomAccountFields((current) => ({
       ...current,
       [platformId]: (current[platformId] ?? []).filter((field) => field.id !== id),
@@ -718,7 +766,11 @@ export function App() {
     const authorizedCount = accountConfigs.filter(
       (config) => config.status === 'authorized',
     ).length;
-    const missingCount = PLATFORM_ADAPTERS.length - configuredCount;
+    const configuredBuiltInCount = accountConfigs.filter(
+      (config) => config.builtIn && config.configured,
+    ).length;
+    const missingCount = PLATFORM_ADAPTERS.length - configuredBuiltInCount;
+    const customConfigs = accountConfigs.filter((config) => !config.builtIn);
 
     return (
       <section className="settings-page">
@@ -736,6 +788,37 @@ export function App() {
             <strong>{missingCount}</strong>
           </div>
         </div>
+
+        <section className="custom-platform-panel">
+          <div>
+            <strong>新增平台配置</strong>
+            <span>保存账号参数和授权凭证, 后续可继续接入适配器和发布器</span>
+          </div>
+          <input
+            value={newCustomPlatform.displayName}
+            placeholder="平台名称, 如抖音"
+            onChange={(event) =>
+              setNewCustomPlatform((current) => ({
+                ...current,
+                displayName: event.target.value,
+              }))
+            }
+          />
+          <input
+            value={newCustomPlatform.platformId}
+            placeholder="平台标识, 如 douyin"
+            onChange={(event) =>
+              setNewCustomPlatform((current) => ({
+                ...current,
+                platformId: event.target.value,
+              }))
+            }
+          />
+          <button type="button" onClick={addCustomPlatform}>
+            <Plus size={15} />
+            添加平台
+          </button>
+        </section>
 
         <div className="settings-grid">
           {PLATFORM_ADAPTERS.map((adapter) => {
@@ -872,7 +955,7 @@ export function App() {
                   <button
                     type="button"
                     disabled={isSavingAccount === adapter.id}
-                    onClick={() => void handleSaveAccount(adapter.id)}
+                    onClick={() => void handleSaveAccount(adapter.id, adapter.displayName)}
                   >
                     {isSavingAccount === adapter.id ? (
                       <Loader2 className="spin" size={16} />
@@ -901,6 +984,141 @@ export function App() {
                   >
                     <Trash2 size={16} />
                     删除配置
+                  </button>
+                </div>
+              </section>
+            );
+          })}
+          {[
+            ...customConfigs,
+            ...customPlatformDrafts.map((draft) =>
+              createCustomFallbackAccountConfig(draft.platformId, draft.displayName),
+            ),
+          ].map((config) => {
+            const platformId = config.platformId;
+            const displayName = config.displayName;
+            const form = accountForms[platformId] ?? {};
+            const customFields = customAccountFields[platformId] ?? [];
+
+            return (
+              <section className="account-card custom-platform-card" key={platformId}>
+                <div className="account-heading">
+                  <div>
+                    <div className="account-title-row">
+                      <h2>{displayName}</h2>
+                      <span className="custom-platform-badge">自定义平台</span>
+                    </div>
+                    <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
+                  </div>
+                  <label className="account-toggle">
+                    <input
+                      checked={form.enabled ? form.enabled === 'true' : config.enabled}
+                      type="checkbox"
+                      onChange={(event) =>
+                        updateAccountField(platformId, 'enabled', String(event.target.checked))
+                      }
+                    />
+                    <span aria-hidden="true" />
+                    <strong>启用</strong>
+                  </label>
+                </div>
+
+                <div className="custom-platform-meta">
+                  <span>平台标识</span>
+                  <code>{platformId}</code>
+                </div>
+
+                {Object.keys(config.maskedFields).length > 0 ? (
+                  <div className="account-saved-fields">
+                    {Object.entries(config.maskedFields).map(([key, value]) => (
+                      <span key={key}>
+                        {key}: {value}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="custom-config-section">
+                  <div className="custom-config-heading">
+                    <span>配置参数</span>
+                    <button type="button" onClick={() => addCustomAccountField(platformId)}>
+                      <Plus size={14} />
+                      添加参数
+                    </button>
+                  </div>
+                  {customFields.length > 0 ? (
+                    <div className="custom-config-list">
+                      {customFields.map((field) => (
+                        <div className="custom-config-row" key={field.id}>
+                          <input
+                            value={field.key}
+                            placeholder="参数名, 如 accessToken"
+                            onChange={(event) =>
+                              updateCustomAccountField(platformId, field.id, {
+                                key: event.target.value,
+                              })
+                            }
+                          />
+                          <input
+                            value={field.value}
+                            placeholder="参数值"
+                            onChange={(event) =>
+                              updateCustomAccountField(platformId, field.id, {
+                                value: event.target.value,
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            aria-label="删除参数"
+                            onClick={() => removeCustomAccountField(platformId, field.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="custom-config-empty">先添加这个平台需要保存的参数</p>
+                  )}
+                </div>
+
+                <div className="account-actions">
+                  <button
+                    type="button"
+                    disabled={isSavingAccount === platformId}
+                    onClick={() => void handleSaveAccount(platformId, displayName)}
+                  >
+                    {isSavingAccount === platformId ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    保存配置
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isVerifyingAccount === platformId || !config.configured}
+                    onClick={() => void handleVerifyAccount(platformId)}
+                  >
+                    {isVerifyingAccount === platformId ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    授权
+                  </button>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={() =>
+                      config.configured
+                        ? void handleDeleteAccount(platformId)
+                        : removeCustomPlatformDraft(platformId)
+                    }
+                  >
+                    <Trash2 size={16} />
+                    删除平台
                   </button>
                 </div>
               </section>
@@ -1355,6 +1573,8 @@ function getPlatformName(platformId: PlatformId): string {
 function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountConfig {
   return {
     platformId,
+    displayName: getPlatformName(platformId),
+    builtIn: true,
     enabled: false,
     configured: false,
     status: 'not-configured',
@@ -1363,10 +1583,42 @@ function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountCon
   };
 }
 
-function getAccountFieldLabel(platformId: PlatformId, key: string): string {
+function createCustomFallbackAccountConfig(
+  platformId: string,
+  displayName: string,
+): PlatformAccountConfig {
+  return {
+    platformId,
+    displayName,
+    builtIn: false,
+    enabled: true,
+    configured: false,
+    status: 'not-configured',
+    statusMessage: '未配置账号',
+    maskedFields: {},
+  };
+}
+
+function getAccountDisplayName(platformId: string, fallback?: string): string {
+  return fallback ?? PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
+}
+
+function getAccountFieldLabel(platformId: string, key: string): string {
+  if (!Object.hasOwn(PLATFORM_ACCOUNT_SCHEMAS, platformId)) {
+    return key;
+  }
   return (
-    PLATFORM_ACCOUNT_SCHEMAS[platformId].fields.find((field) => field.key === key)?.label ?? key
+    PLATFORM_ACCOUNT_SCHEMAS[platformId as PlatformId].fields.find((field) => field.key === key)
+      ?.label ?? key
   );
+}
+
+function normalizeCustomPlatformId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]/g, '');
 }
 
 function getContentReviewStatusText(status?: ContentReviewStatus): string {

@@ -42,6 +42,8 @@ const session: SavedSession = {
 
 const authorizedAccounts: PlatformAccountConfig[] = PLATFORM_ADAPTERS.map((adapter) => ({
   platformId: adapter.id,
+  displayName: adapter.displayName,
+  builtIn: true,
   enabled: true,
   configured: true,
   status: 'authorized',

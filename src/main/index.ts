@@ -28,6 +28,7 @@ import {
   type UpdateDraftInput,
   type VerifyPlatformAccountInput,
 } from '../shared/types';
+import { isBuiltInPlatformId } from '../shared/platformAccounts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -92,12 +93,21 @@ ipcMain.handle('accounts:save', (_event, input: SavePlatformAccountInput) =>
   accounts.saveAccountConfig(input),
 );
 
-ipcMain.handle('accounts:delete', (_event, platformId: PlatformId) => {
+ipcMain.handle('accounts:delete', (_event, platformId: string) => {
   accounts.deleteAccountConfig(platformId);
   return accounts.listAccountConfigs();
 });
 
 ipcMain.handle('accounts:verify', async (_event, input: VerifyPlatformAccountInput) => {
+  if (!isBuiltInPlatformId(input.platformId)) {
+    return {
+      platformId: input.platformId,
+      status: 'auth-failed',
+      message: '自定义平台暂不支持自动授权校验',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
   const account = accounts.getSecretAccountConfig(input.platformId);
   const result = await verifyOfficialAccount({
     platformId: input.platformId,
