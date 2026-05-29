@@ -2,37 +2,67 @@
   "name": "postpilot",
   "version": "0.1.0",
   "private": true,
+  "productName": "PostPilot",
+  "author": "PostPilot",
   "description": "A local creator publishing assistant for multi-platform content adaptation.",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1",
+    "dist:dir": "npm run build && electron-builder --dir --publish never",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.2.0",
-    "dompurify": "^3.4.7",
     "dotenv": "^17.2.3",
-    "electron-vite": "^5.0.0",
-    "lucide-react": "^1.17.0",
-    "marked": "^18.0.4",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "vite": "^7.3.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "dompurify": "^3.4.7",
     "electron": "^42.3.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
+    "lucide-react": "^1.17.0",
+    "marked": "^18.0.4",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "typescript": "^6.0.3",
+    "vite": "^7.3.3",
     "vitest": "^4.1.7"
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "build": {
+    "appId": "com.postpilot.desktop",
+    "productName": "PostPilot",
+    "asar": true,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist-release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
   }
 }

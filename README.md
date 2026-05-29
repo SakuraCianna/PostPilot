@@ -32,6 +32,7 @@ PostPilot 是一个本地桌面端创作者发布助手。用户输入一份原�
 - marked, Markdown 内容渲染
 - DOMPurify, HTML 预览净化
 - Vitest, 单元测试
+- electron-builder, Windows zip 发行包打包
 
 ## 原创功能部分
 
@@ -71,7 +72,14 @@ npm run dev
 npm test
 npm run typecheck
 npm run build
+npm run dist
 ```
+
+## 发布
+
+`release` 分支用于稳定发布候选代码。GitHub 页面上的特殊 Releases 区域需要通过 `v0.1.0` 这类 tag 和 GitHub Release 创建, 不会因为存在 `release` 分支自动出现。
+
+详细流程见 [RELEASE.md](./RELEASE.md)。
 
 ## 环境变量
 
