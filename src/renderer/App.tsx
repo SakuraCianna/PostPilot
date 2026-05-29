@@ -25,6 +25,7 @@ import {
 } from '../shared/platformAdapters';
 import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
+import { createReadinessSteps } from './productStatus';
 import {
   type PlatformAccountConfig,
   type PlatformDraft,
@@ -83,6 +84,19 @@ export function App() {
     [selectedPlatform],
   );
 
+  const selectedAccountConfig = useMemo(
+    () => accountConfigs.find((config) => config.platformId === selectedPlatform) ?? null,
+    [accountConfigs, selectedPlatform],
+  );
+
+  const selectedPublishEvents = useMemo(
+    () =>
+      currentSession?.publishEvents.filter(
+        (event) => event.platformId === selectedPlatform,
+      ) ?? [],
+    [currentSession?.publishEvents, selectedPlatform],
+  );
+
   const editableDraft = selectedDraft
     ? draftEdits[selectedDraft.platformId] ?? selectedDraft
     : null;
@@ -97,6 +111,28 @@ export function App() {
       sanitizeDraftPreviewHtml,
     );
   }, [editableDraft, selectedAdapter]);
+
+  const readinessSteps = useMemo(() => {
+    if (!editableDraft) {
+      return [];
+    }
+    return createReadinessSteps({
+      draft: editableDraft,
+      account: selectedAccountConfig,
+      publishEvents: selectedPublishEvents,
+    });
+  }, [editableDraft, selectedAccountConfig, selectedPublishEvents]);
+
+  const approvedDraftCount = useMemo(
+    () =>
+      previewDrafts.filter((draft) => {
+        const edited = draftEdits[draft.platformId] ?? draft;
+        return edited.status === 'ready';
+      }).length,
+    [draftEdits, previewDrafts],
+  );
+
+  const allDraftsReady = approvedDraftCount === PLATFORM_ADAPTERS.length;
 
   useEffect(() => {
     if (!selectedDraft) {
@@ -426,8 +462,29 @@ export function App() {
   }
 
   function renderSettingsView() {
+    const configuredCount = accountConfigs.filter((config) => config.configured).length;
+    const authorizedCount = accountConfigs.filter(
+      (config) => config.status === 'authorized',
+    ).length;
+    const missingCount = PLATFORM_ADAPTERS.length - configuredCount;
+
     return (
       <section className="settings-page">
+        <div className="settings-summary">
+          <div>
+            <span>已授权</span>
+            <strong>{authorizedCount}</strong>
+          </div>
+          <div>
+            <span>已配置</span>
+            <strong>{configuredCount}</strong>
+          </div>
+          <div>
+            <span>未配置</span>
+            <strong>{missingCount}</strong>
+          </div>
+        </div>
+
         <div className="settings-grid">
           {PLATFORM_ADAPTERS.map((adapter) => {
             const schema = PLATFORM_ACCOUNT_SCHEMAS[adapter.id];
@@ -454,6 +511,16 @@ export function App() {
                     启用
                   </label>
                 </div>
+
+                {Object.keys(config.maskedFields).length > 0 ? (
+                  <div className="account-saved-fields">
+                    {Object.entries(config.maskedFields).map(([key, value]) => (
+                      <span key={key}>
+                        {getAccountFieldLabel(adapter.id, key)}: {value}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="account-fields">
                   {schema.fields.map((field) => (
@@ -601,6 +668,10 @@ export function App() {
               setDraftEdits({});
             }}
           />
+          <div className="editor-meta">
+            <span>已审核 {approvedDraftCount}/{PLATFORM_ADAPTERS.length}</span>
+            <span>{currentSession ? '已保存' : '本地草稿'}</span>
+          </div>
           <textarea
             className="body-input"
             placeholder="输入或粘贴你的原始内容"
@@ -644,6 +715,15 @@ export function App() {
 
         {editableDraft ? (
           <section className="draft-view">
+            <div className="readiness-panel">
+              {readinessSteps.map((step) => (
+                <div className={`readiness-step ${step.state}`} key={step.id}>
+                  <span>{step.label}</span>
+                  <strong>{step.text}</strong>
+                </div>
+              ))}
+            </div>
+
             <div className="draft-heading">
               <div>
                 <span>{getPlatformName(editableDraft.platformId)}</span>
@@ -757,7 +837,7 @@ export function App() {
                   <button
                     key={mode}
                     type="button"
-                    disabled={isPublishing}
+                    disabled={isPublishing || (mode === 'officialApi' && editableDraft.status !== 'ready')}
                     onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
                   >
                     {isPublishing && mode === 'simulated' ? (
@@ -778,7 +858,7 @@ export function App() {
         <button
           className="publish-all"
           type="button"
-          disabled={isPublishing || !currentSession}
+          disabled={isPublishing || !currentSession || !allDraftsReady}
           onClick={() => void handlePublishAll()}
         >
           <Send size={16} />
@@ -789,9 +869,16 @@ export function App() {
           <h3>发布记录</h3>
           {currentSession?.publishEvents.length ? (
             currentSession.publishEvents.slice(0, 8).map((event) => (
-              <div className="event-row" key={event.id}>
-                <span>{getPlatformName(event.platformId)}</span>
-                <small>{formatTime(event.createdAt)}</small>
+              <div className={`event-row ${event.status}`} key={event.id}>
+                <div>
+                  <span>{getPlatformName(event.platformId)}</span>
+                  <strong>{event.message}</strong>
+                </div>
+                <small>
+                  {getPublishModeLabel(event.mode)}
+                  <br />
+                  {formatTime(event.createdAt)}
+                </small>
               </div>
             ))
           ) : (
@@ -819,6 +906,12 @@ function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountCon
     statusMessage: '未配置账号',
     maskedFields: {},
   };
+}
+
+function getAccountFieldLabel(platformId: PlatformId, key: string): string {
+  return (
+    PLATFORM_ACCOUNT_SCHEMAS[platformId].fields.find((field) => field.key === key)?.label ?? key
+  );
 }
 
 function getPublishModeLabel(mode: PublishMode): string {

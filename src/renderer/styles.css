@@ -275,6 +275,23 @@ button:disabled {
   padding: 48px 0 24px;
 }
 
+.editor-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.editor-meta span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .title-input {
   width: 100%;
   border: 0;
@@ -353,6 +370,58 @@ button:disabled {
   overflow-y: auto;
   padding-top: 4px;
   padding-right: 2px;
+}
+
+.readiness-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.readiness-step {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 9px 10px;
+}
+
+.readiness-step span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.readiness-step strong {
+  overflow: hidden;
+  color: var(--black);
+  font-size: 13px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.readiness-step.done {
+  border-color: #b6dbc2;
+  background: #f4fbf6;
+}
+
+.readiness-step.done strong {
+  color: #1f7a3a;
+}
+
+.readiness-step.blocked,
+.readiness-step.failed {
+  border-color: #efc0bd;
+  background: #fff7f6;
+}
+
+.readiness-step.blocked strong,
+.readiness-step.failed strong {
+  color: #c7352f;
 }
 
 .draft-heading {
@@ -645,9 +714,42 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #ececec;
   font-size: 13px;
+}
+
+.event-row div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.event-row span {
+  font-weight: 700;
+}
+
+.event-row strong {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-row.success span {
+  color: #1f7a3a;
+}
+
+.event-row.failed span {
+  color: #c7352f;
+}
+
+.event-row.pending span {
+  color: var(--black);
 }
 
 .event-row small,
@@ -735,6 +837,35 @@ button:disabled {
   padding: 24px 0;
 }
 
+.settings-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.settings-summary div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 12px 14px;
+}
+
+.settings-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-summary strong {
+  color: var(--black);
+  font-size: 20px;
+  line-height: 1;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
@@ -774,6 +905,25 @@ button:disabled {
 
 .account-state.auth-failed {
   color: #c7352f;
+}
+
+.account-saved-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.account-saved-fields span {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--soft);
+  color: #3d3d3d;
+  padding: 5px 8px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-toggle {
@@ -862,12 +1012,14 @@ button:disabled {
     border-left: 0;
   }
 
-  .settings-grid {
+  .settings-grid,
+  .settings-summary {
     grid-template-columns: 1fr;
   }
 
   .preview-actions,
-  .account-actions {
+  .account-actions,
+  .readiness-panel {
     grid-template-columns: 1fr;
   }
 }
