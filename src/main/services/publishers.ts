@@ -2,9 +2,24 @@ import {
   formatDraftForClipboard,
   getPlatformAdapter,
 } from '../../shared/platformAdapters';
-import type { PublishArtifact, PublishTaskInput, PublishTaskResult } from '../../shared/types';
+import type {
+  PlatformId,
+  PublishArtifact,
+  PublishTaskInput,
+  PublishTaskResult,
+  SecretPlatformAccountConfig,
+} from '../../shared/types';
+import { publishWithOfficialConnector } from './officialConnectors';
 
-export function createPublishTask(input: PublishTaskInput): PublishTaskResult {
+export interface PublishTaskContext {
+  getAccountConfig?: (platformId: PlatformId) => SecretPlatformAccountConfig | null;
+  fetchImpl?: typeof fetch;
+}
+
+export async function createPublishTask(
+  input: PublishTaskInput,
+  context: PublishTaskContext = {},
+): Promise<PublishTaskResult> {
   const adapter = getPlatformAdapter(input.draft.platformId);
 
   if (!adapter.publishModes.includes(input.mode)) {
@@ -15,6 +30,18 @@ export function createPublishTask(input: PublishTaskInput): PublishTaskResult {
         mode: input.mode,
         status: 'failed',
         message: `${adapter.displayName} 不支持当前发布方式`,
+      },
+    };
+  }
+
+  if (input.mode !== 'exportOnly' && input.draft.status !== 'ready') {
+    return {
+      status: 'failed',
+      event: {
+        platformId: input.draft.platformId,
+        mode: input.mode,
+        status: 'failed',
+        message: '请先完成手动审核',
       },
     };
   }
@@ -41,6 +68,25 @@ export function createPublishTask(input: PublishTaskInput): PublishTaskResult {
         message: `${adapter.displayName} 导出内容已生成`,
       },
       artifact: createArtifact(input),
+    };
+  }
+
+  if (input.mode === 'officialApi') {
+    const result = await publishWithOfficialConnector({
+      draft: input.draft,
+      account: context.getAccountConfig?.(input.draft.platformId) ?? null,
+      fetchImpl: context.fetchImpl,
+    });
+    return {
+      status: result.status,
+      event: {
+        platformId: input.draft.platformId,
+        mode: input.mode,
+        status: result.status,
+        message: result.message,
+        receipt: result.receipt,
+        attempts: result.attempts,
+      },
     };
   }
 

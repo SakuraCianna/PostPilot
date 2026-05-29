@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createAccountRepository } from './db/accountRepository';
 import { createDatabase } from './db/database';
 import { createSessionRepository } from './db/sessionRepository';
 import { createSettingsRepository, type SecretCodec } from './db/settingsRepository';
 import { generateAdaptations } from './services/deepseek';
+import { verifyOfficialAccount } from './services/officialConnectors';
 import { createPublishTask } from './services/publishers';
 import { replacePlatformDraft } from '../shared/draftUpdates';
 import {
@@ -18,7 +20,9 @@ import {
   type PlatformId,
   type PublishMode,
   type SaveModelSettingsInput,
+  type SavePlatformAccountInput,
   type UpdateDraftInput,
+  type VerifyPlatformAccountInput,
 } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,8 +35,10 @@ if (process.env.POSTPILOT_USER_DATA) {
 }
 
 const db = createDatabase(path.join(app.getPath('userData'), 'postpilot.sqlite'));
+const secretCodec = createSecretCodec();
 const sessions = createSessionRepository(db);
-const settings = createSettingsRepository(db, createSecretCodec());
+const settings = createSettingsRepository(db, secretCodec);
+const accounts = createAccountRepository(db, secretCodec);
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -63,6 +69,7 @@ ipcMain.handle('bootstrap:get', () => ({
   platforms: PLATFORM_ADAPTERS,
   sessions: sessions.listSessions(),
   settings: settings.getModelSettings(),
+  accountConfigs: accounts.listAccountConfigs(),
 }));
 
 ipcMain.handle('sessions:list', () => sessions.listSessions());
@@ -74,6 +81,32 @@ ipcMain.handle('settings:get', () => settings.getModelSettings());
 ipcMain.handle('settings:save', (_event, input: SaveModelSettingsInput) =>
   settings.saveModelSettings(input),
 );
+
+ipcMain.handle('accounts:list', () => accounts.listAccountConfigs());
+
+ipcMain.handle('accounts:save', (_event, input: SavePlatformAccountInput) =>
+  accounts.saveAccountConfig(input),
+);
+
+ipcMain.handle('accounts:delete', (_event, platformId: PlatformId) => {
+  accounts.deleteAccountConfig(platformId);
+  return accounts.listAccountConfigs();
+});
+
+ipcMain.handle('accounts:verify', async (_event, input: VerifyPlatformAccountInput) => {
+  const account = accounts.getSecretAccountConfig(input.platformId);
+  const result = await verifyOfficialAccount({
+    platformId: input.platformId,
+    account,
+  });
+
+  if (!account) {
+    return result;
+  }
+
+  accounts.updateAuthResult(result);
+  return result;
+});
 
 ipcMain.handle('drafts:update', (_event, input: UpdateDraftInput) => {
   const session = sessions.getSession(input.sessionId);
@@ -119,7 +152,7 @@ ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptations
 
 ipcMain.handle(
   'publish:run',
-  (_event, input: { sessionId: string; platformId: PlatformId; mode: PublishMode }) => {
+  async (_event, input: { sessionId: string; platformId: PlatformId; mode: PublishMode }) => {
     const session = sessions.getSession(input.sessionId);
     if (!session) {
       throw new Error('未找到对应历史记录');
@@ -130,11 +163,16 @@ ipcMain.handle(
       throw new Error('未找到对应平台草稿');
     }
 
-    const task = createPublishTask({
-      sessionId: input.sessionId,
-      draft,
-      mode: input.mode,
-    });
+    const task = await createPublishTask(
+      {
+        sessionId: input.sessionId,
+        draft,
+        mode: input.mode,
+      },
+      {
+        getAccountConfig: (platformId) => accounts.getSecretAccountConfig(platformId),
+      },
+    );
 
     const event = sessions.recordPublishEvent({
       sessionId: input.sessionId,

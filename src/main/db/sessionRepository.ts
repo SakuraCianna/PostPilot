@@ -29,8 +29,10 @@ interface PublishEventRow {
   session_id: string;
   platform_id: PlatformId;
   mode: PublishMode;
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | 'pending';
   message: string;
+  receipt_json: string | null;
+  attempts: number;
   created_at: string;
 }
 
@@ -118,8 +120,10 @@ export function createSessionRepository(db: PostPilotDatabase) {
       const createdAt = new Date().toISOString();
 
       db.prepare(`
-        INSERT INTO publish_events (id, session_id, platform_id, mode, status, message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO publish_events (
+          id, session_id, platform_id, mode, status, message, receipt_json, attempts, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         input.sessionId,
@@ -127,6 +131,8 @@ export function createSessionRepository(db: PostPilotDatabase) {
         input.mode,
         input.status,
         input.message,
+        input.receipt ? JSON.stringify(input.receipt) : null,
+        input.attempts ?? 1,
         createdAt,
       );
 
@@ -139,6 +145,8 @@ export function createSessionRepository(db: PostPilotDatabase) {
         mode: input.mode,
         status: input.status,
         message: input.message,
+        receipt: input.receipt,
+        attempts: input.attempts ?? 1,
         createdAt,
       };
     },
@@ -163,6 +171,8 @@ function mapSession(row: SessionRow, eventRows: PublishEventRow[]): SavedSession
       mode: event.mode,
       status: event.status,
       message: event.message,
+      receipt: event.receipt_json ? JSON.parse(event.receipt_json) : undefined,
+      attempts: event.attempts,
       createdAt: event.created_at,
     })),
   };

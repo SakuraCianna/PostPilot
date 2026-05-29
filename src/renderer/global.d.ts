@@ -3,12 +3,16 @@ import type {
   GenerateAdaptationsInput,
   ModelSettings,
   PlatformId,
+  PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
   SaveModelSettingsInput,
+  SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
   UpdateDraftInput,
+  VerifyPlatformAccountInput,
+  VerifyPlatformAccountResult,
 } from '../shared/types';
 
 declare global {
@@ -19,6 +23,10 @@ declare global {
       getSession(id: string): Promise<SavedSession | null>;
       getSettings(): Promise<ModelSettings>;
       saveSettings(input: SaveModelSettingsInput): Promise<ModelSettings>;
+      listAccountConfigs(): Promise<PlatformAccountConfig[]>;
+      saveAccountConfig(input: SavePlatformAccountInput): Promise<PlatformAccountConfig>;
+      deleteAccountConfig(platformId: PlatformId): Promise<PlatformAccountConfig[]>;
+      verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
       updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;
       runPublishTask(input: {

@@ -10,6 +10,12 @@ export type DraftStatus = 'ready' | 'needs-review';
 
 export type ModelStatus = 'ai' | 'local-fallback' | 'error-fallback';
 
+export type PlatformAccountStatus =
+  | 'not-configured'
+  | 'configured'
+  | 'authorized'
+  | 'auth-failed';
+
 export interface CanonicalContent {
   title: string;
   body: string;
@@ -84,8 +90,10 @@ export interface PublishEventInput {
   sessionId: string;
   platformId: PlatformId;
   mode: PublishMode;
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | 'pending';
   message: string;
+  receipt?: PublishReceipt;
+  attempts?: number;
 }
 
 export interface PublishEvent extends PublishEventInput {
@@ -107,6 +115,7 @@ export interface BootstrapPayload {
   platforms: PlatformAdapter[];
   sessions: SessionSummary[];
   settings: ModelSettings;
+  accountConfigs: PlatformAccountConfig[];
 }
 
 export interface ModelSettings {
@@ -132,6 +141,16 @@ export interface PublishArtifact {
   mimeType: string;
 }
 
+export interface PublishReceipt {
+  provider: PlatformId;
+  externalId?: string;
+  draftId?: string;
+  publishId?: string;
+  articleUrl?: string;
+  raw?: unknown;
+  checkedAt: string;
+}
+
 export interface PublishTaskInput {
   sessionId?: string;
   draft: PlatformDraft;
@@ -142,4 +161,57 @@ export interface PublishTaskResult {
   status: 'success' | 'pending' | 'failed';
   event: Omit<PublishEventInput, 'sessionId'>;
   artifact?: PublishArtifact;
+}
+
+export interface PlatformAccountFieldSchema {
+  key: string;
+  label: string;
+  required: boolean;
+  secret?: boolean;
+  kind?: 'text' | 'password' | 'select';
+  options?: Array<{
+    label: string;
+    value: string;
+  }>;
+}
+
+export interface PlatformAccountSchema {
+  platformId: PlatformId;
+  displayName: string;
+  supportsOfficialApi: boolean;
+  fields: PlatformAccountFieldSchema[];
+}
+
+export interface PlatformAccountConfig {
+  platformId: PlatformId;
+  enabled: boolean;
+  configured: boolean;
+  status: PlatformAccountStatus;
+  statusMessage: string;
+  maskedFields: Record<string, string>;
+  updatedAt?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface SecretPlatformAccountConfig {
+  platformId: PlatformId;
+  enabled: boolean;
+  fields: Record<string, string>;
+}
+
+export interface SavePlatformAccountInput {
+  platformId: PlatformId;
+  enabled: boolean;
+  fields: Record<string, string>;
+}
+
+export interface VerifyPlatformAccountInput {
+  platformId: PlatformId;
+}
+
+export interface VerifyPlatformAccountResult {
+  platformId: PlatformId;
+  status: PlatformAccountStatus;
+  message: string;
+  checkedAt: string;
 }

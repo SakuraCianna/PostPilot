@@ -135,7 +135,7 @@ export function applyDraftValidation(draft: PlatformDraft): PlatformDraft {
   const warnings = validatePlatformDraft(draft.platformId, draft);
   return {
     ...draft,
-    status: warnings.length > 0 ? 'needs-review' : 'ready',
+    status: warnings.length > 0 ? 'needs-review' : draft.status,
     warnings,
   };
 }

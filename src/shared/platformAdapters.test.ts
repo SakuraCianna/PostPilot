@@ -49,7 +49,35 @@ describe('platform adapters', () => {
     expect(warnings).toContain('话题标签不能超过 6 个');
   });
 
-  it('updates draft status and warnings after draft edits', () => {
+  it('keeps drafts under manual review after warning-free edits', () => {
+    const draft = applyDraftValidation({
+      platformId: 'zhihu',
+      title: '标题',
+      summary: '摘要',
+      body: '正文',
+      hashtags: ['内容创作'],
+      status: 'needs-review',
+    });
+
+    expect(draft.status).toBe('needs-review');
+    expect(draft.warnings).toEqual([]);
+  });
+
+  it('keeps approved drafts ready when validation still passes', () => {
+    const draft = applyDraftValidation({
+      platformId: 'zhihu',
+      title: '标题',
+      summary: '摘要',
+      body: '正文',
+      hashtags: ['内容创作'],
+      status: 'ready',
+    });
+
+    expect(draft.status).toBe('ready');
+    expect(draft.warnings).toEqual([]);
+  });
+
+  it('marks invalid approved drafts as needing manual review', () => {
     const draft = applyDraftValidation({
       platformId: 'wechat',
       title: '',

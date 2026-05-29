@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPublishTask } from './publishers';
-import type { PlatformDraft } from '../../shared/types';
+import type { PlatformDraft, SecretPlatformAccountConfig } from '../../shared/types';
 
 const draft: PlatformDraft = {
   platformId: 'wechat',
@@ -12,8 +12,22 @@ const draft: PlatformDraft = {
 };
 
 describe('publishers', () => {
-  it('creates a simulated publish task with Chinese message', () => {
-    const task = createPublishTask({
+  it('blocks publishing before manual review is approved', async () => {
+    const task = await createPublishTask({
+      draft: {
+        ...draft,
+        status: 'needs-review',
+      },
+      mode: 'officialApi',
+    });
+
+    expect(task.status).toBe('failed');
+    expect(task.event.status).toBe('failed');
+    expect(task.event.message).toBe('请先完成手动审核');
+  });
+
+  it('creates a simulated publish task with Chinese message', async () => {
+    const task = await createPublishTask({
       draft,
       mode: 'simulated',
     });
@@ -25,8 +39,8 @@ describe('publishers', () => {
     expect(task.artifact).toBeUndefined();
   });
 
-  it('creates an export task with draft content artifact', () => {
-    const task = createPublishTask({
+  it('creates an export task with draft content artifact', async () => {
+    const task = await createPublishTask({
       draft,
       mode: 'exportOnly',
     });
@@ -38,8 +52,8 @@ describe('publishers', () => {
     expect(task.artifact?.content).toContain('<p>正文</p>');
   });
 
-  it('exports plain text platforms as txt artifacts', () => {
-    const task = createPublishTask({
+  it('exports plain text platforms as txt artifacts', async () => {
+    const task = await createPublishTask({
       draft: {
         ...draft,
         platformId: 'bilibili',
@@ -54,14 +68,47 @@ describe('publishers', () => {
     expect(task.artifact?.content).toContain('视频简介');
   });
 
-  it('returns a pending official API task when connector is not implemented', () => {
-    const task = createPublishTask({
+  it('runs official connector with saved account config and receipt', async () => {
+    const account: SecretPlatformAccountConfig = {
+      platformId: 'wechat',
+      enabled: true,
+      fields: {
+        appId: 'wx123',
+        appSecret: 'secret',
+        thumbMediaId: 'thumb-media',
+        publishTarget: 'draft',
+      },
+    };
+    const task = await createPublishTask(
+      {
+        draft,
+        mode: 'officialApi',
+      },
+      {
+        getAccountConfig: () => account,
+        fetchImpl: async (url, init) => {
+          if (String(url).includes('/cgi-bin/token')) {
+            return new Response(JSON.stringify({ access_token: 'token' }));
+          }
+          expect(String(init?.body)).toContain('thumb-media');
+          return new Response(JSON.stringify({ media_id: 'draft-media-id' }));
+        },
+      },
+    );
+
+    expect(task.status).toBe('success');
+    expect(task.event.status).toBe('success');
+    expect(task.event.receipt?.draftId).toBe('draft-media-id');
+  });
+
+  it('returns a failed official API task when account config is missing', async () => {
+    const task = await createPublishTask({
       draft,
       mode: 'officialApi',
     });
 
-    expect(task.status).toBe('pending');
+    expect(task.status).toBe('failed');
     expect(task.event.status).toBe('failed');
-    expect(task.event.message).toBe('微信公众号 官方接口发布尚未接入');
+    expect(task.event.message).toBe('请先在设置中完成微信公众号账号配置');
   });
 });

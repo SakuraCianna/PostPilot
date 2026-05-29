@@ -4,12 +4,16 @@ import type {
   GenerateAdaptationsInput,
   ModelSettings,
   PlatformId,
+  PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
   SaveModelSettingsInput,
+  SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
   UpdateDraftInput,
+  VerifyPlatformAccountInput,
+  VerifyPlatformAccountResult,
 } from '../shared/types';
 
 const api = {
@@ -19,6 +23,14 @@ const api = {
   getSettings: (): Promise<ModelSettings> => ipcRenderer.invoke('settings:get'),
   saveSettings: (input: SaveModelSettingsInput): Promise<ModelSettings> =>
     ipcRenderer.invoke('settings:save', input),
+  listAccountConfigs: (): Promise<PlatformAccountConfig[]> => ipcRenderer.invoke('accounts:list'),
+  saveAccountConfig: (input: SavePlatformAccountInput): Promise<PlatformAccountConfig> =>
+    ipcRenderer.invoke('accounts:save', input),
+  deleteAccountConfig: (platformId: PlatformId): Promise<PlatformAccountConfig[]> =>
+    ipcRenderer.invoke('accounts:delete', platformId),
+  verifyAccountConfig: (
+    input: VerifyPlatformAccountInput,
+  ): Promise<VerifyPlatformAccountResult> => ipcRenderer.invoke('accounts:verify', input),
   updateDraft: (input: UpdateDraftInput): Promise<SavedSession> =>
     ipcRenderer.invoke('drafts:update', input),
   generateAdaptations: (input: GenerateAdaptationsInput): Promise<SavedSession> =>
