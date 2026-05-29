@@ -6,6 +6,7 @@ import { createDatabase } from './db/database';
 import { createSessionRepository } from './db/sessionRepository';
 import { createSettingsRepository, type SecretCodec } from './db/settingsRepository';
 import { generateAdaptations } from './services/deepseek';
+import { replacePlatformDraft } from '../shared/draftUpdates';
 import {
   createLocalDrafts,
   PLATFORM_ADAPTERS,
@@ -15,6 +16,7 @@ import {
   type GenerateAdaptationsInput,
   type PlatformId,
   type SaveModelSettingsInput,
+  type UpdateDraftInput,
 } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -70,6 +72,23 @@ ipcMain.handle('settings:get', () => settings.getModelSettings());
 ipcMain.handle('settings:save', (_event, input: SaveModelSettingsInput) =>
   settings.saveModelSettings(input),
 );
+
+ipcMain.handle('drafts:update', (_event, input: UpdateDraftInput) => {
+  const session = sessions.getSession(input.sessionId);
+  if (!session) {
+    throw new Error('未找到对应历史记录');
+  }
+
+  return sessions.saveSession({
+    id: session.id,
+    title: session.title,
+    sourceBody: session.sourceBody,
+    drafts: replacePlatformDraft(session.drafts, input.draft),
+    model: session.model,
+    modelStatus: session.modelStatus,
+    modelMessage: session.modelMessage,
+  });
+});
 
 ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptationsInput) => {
   const body = input.body.trim();

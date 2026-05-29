@@ -7,6 +7,7 @@ import type {
   SaveModelSettingsInput,
   SavedSession,
   SessionSummary,
+  UpdateDraftInput,
 } from '../shared/types';
 
 const api = {
@@ -16,6 +17,8 @@ const api = {
   getSettings: (): Promise<ModelSettings> => ipcRenderer.invoke('settings:get'),
   saveSettings: (input: SaveModelSettingsInput): Promise<ModelSettings> =>
     ipcRenderer.invoke('settings:save', input),
+  updateDraft: (input: UpdateDraftInput): Promise<SavedSession> =>
+    ipcRenderer.invoke('drafts:update', input),
   generateAdaptations: (input: GenerateAdaptationsInput): Promise<SavedSession> =>
     ipcRenderer.invoke('adaptations:generate', input),
   simulatePublish: (

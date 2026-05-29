@@ -340,9 +340,15 @@ button:disabled {
   font-weight: 650;
 }
 
-.draft-heading h2 {
+.draft-title-input {
+  width: 100%;
   margin: 5px 0 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--black);
   font-size: 18px;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
 }
@@ -356,11 +362,23 @@ button:disabled {
   color: #1f7a3a;
 }
 
-.summary {
+.summary,
+.summary-input {
   margin: 14px 0;
   color: #3d3d3d;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.summary-input {
+  width: 100%;
+  min-height: 74px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  resize: vertical;
+  padding: 10px;
+  background: var(--white);
 }
 
 .warnings {
@@ -378,7 +396,8 @@ button:disabled {
   line-height: 1.4;
 }
 
-.draft-body {
+.draft-body,
+.draft-body-input {
   flex: 1;
   overflow: auto;
   min-height: 260px;
@@ -393,6 +412,25 @@ button:disabled {
   font-size: 13px;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.draft-body-input {
+  width: 100%;
+  outline: 0;
+  resize: vertical;
+}
+
+.hashtags-input {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  padding: 0 10px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 13px;
 }
 
 .tags {
@@ -412,7 +450,7 @@ button:disabled {
 
 .preview-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-top: 14px;
 }

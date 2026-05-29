@@ -6,6 +6,7 @@ import {
   Loader2,
   Play,
   Plus,
+  Save,
   Send,
   Settings,
   Sparkles,
@@ -40,11 +41,13 @@ export function App() {
   const [body, setBody] = useState(INITIAL_BODY);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settings, setSettings] = useState<ModelSettings | null>(null);
   const [settingsBaseUrl, setSettingsBaseUrl] = useState('https://api.deepseek.com');
   const [settingsApiKey, setSettingsApiKey] = useState('');
+  const [draftEdits, setDraftEdits] = useState<Partial<Record<PlatformId, PlatformDraft>>>({});
   const [notice, setNotice] = useState('本地历史已连接 SQLite, 模型固定为 deepseek-v4-flash');
 
   useEffect(() => {
@@ -66,6 +69,20 @@ export function App() {
     );
   }, [previewDrafts, selectedPlatform]);
 
+  const editableDraft = selectedDraft
+    ? draftEdits[selectedDraft.platformId] ?? selectedDraft
+    : null;
+
+  useEffect(() => {
+    if (!selectedDraft) {
+      return;
+    }
+    setDraftEdits((current) => ({
+      ...current,
+      [selectedDraft.platformId]: selectedDraft,
+    }));
+  }, [currentSession?.id, selectedDraft]);
+
   async function refreshSessions() {
     setSessions(await window.postPilot.listSessions());
   }
@@ -83,6 +100,7 @@ export function App() {
       setCurrentSession(saved);
       setTitle(saved.title);
       setBody(saved.sourceBody);
+      setDraftEdits({});
       await refreshSessions();
       setNotice(saved.modelMessage);
     } catch (error) {
@@ -102,6 +120,7 @@ export function App() {
     setCurrentSession(loaded);
     setTitle(loaded.title);
     setBody(loaded.sourceBody);
+    setDraftEdits({});
     setSelectedPlatform(loaded.drafts[0]?.platformId ?? 'wechat');
     setNotice(loaded.modelMessage);
   }
@@ -110,6 +129,7 @@ export function App() {
     setCurrentSession(null);
     setTitle('');
     setBody('');
+    setDraftEdits({});
     setSelectedPlatform('wechat');
     setNotice('已创建新的本地草稿');
   }
@@ -227,6 +247,47 @@ export function App() {
     setIsSettingsOpen(true);
   }
 
+  function updateDraftEdit(patch: Partial<PlatformDraft>) {
+    if (!editableDraft) {
+      return;
+    }
+    setDraftEdits((current) => ({
+      ...current,
+      [editableDraft.platformId]: {
+        ...editableDraft,
+        ...patch,
+      },
+    }));
+  }
+
+  async function handleSaveDraft() {
+    if (!currentSession || !editableDraft) {
+      setNotice('请先生成并保存一次平台版本');
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const saved = await window.postPilot.updateDraft({
+        sessionId: currentSession.id,
+        draft: editableDraft,
+      });
+      setCurrentSession(saved);
+      setDraftEdits((current) => ({
+        ...current,
+        [editableDraft.platformId]:
+          saved.drafts.find((draft) => draft.platformId === editableDraft.platformId) ??
+          editableDraft,
+      }));
+      await refreshSessions();
+      setNotice(`${getPlatformName(editableDraft.platformId)} 草稿修改已保存`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '保存草稿修改失败');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -334,50 +395,84 @@ export function App() {
           ))}
         </div>
 
-        {selectedDraft ? (
+        {editableDraft ? (
           <section className="draft-view">
             <div className="draft-heading">
               <div>
-                <span>{getPlatformName(selectedDraft.platformId)}</span>
-                <h2>{selectedDraft.title}</h2>
+                <span>{getPlatformName(editableDraft.platformId)}</span>
+                <input
+                  className="draft-title-input"
+                  value={editableDraft.title}
+                  onChange={(event) => updateDraftEdit({ title: event.target.value })}
+                />
               </div>
-              <div className={`status ${selectedDraft.status}`}>
+              <div className={`status ${editableDraft.status}`}>
                 <Check size={14} />
-                {selectedDraft.status === 'ready' ? '可发布' : '待检查'}
+                {editableDraft.status === 'ready' ? '可发布' : '待检查'}
               </div>
             </div>
 
-            <p className="summary">{selectedDraft.summary}</p>
+            <textarea
+              className="summary-input"
+              value={editableDraft.summary}
+              onChange={(event) => updateDraftEdit({ summary: event.target.value })}
+            />
 
-            {selectedDraft.warnings && selectedDraft.warnings.length > 0 ? (
+            {editableDraft.warnings && editableDraft.warnings.length > 0 ? (
               <div className="warnings">
-                {selectedDraft.warnings.map((warning) => (
+                {editableDraft.warnings.map((warning) => (
                   <span key={warning}>{warning}</span>
                 ))}
               </div>
             ) : null}
 
-            <pre className="draft-body">{formatDraftForClipboard(selectedDraft)}</pre>
+            <textarea
+              className="draft-body-input"
+              value={editableDraft.body}
+              onChange={(event) => updateDraftEdit({ body: event.target.value })}
+            />
+
+            <input
+              className="hashtags-input"
+              value={editableDraft.hashtags.join(', ')}
+              onChange={(event) =>
+                updateDraftEdit({
+                  hashtags: event.target.value
+                    .split(',')
+                    .map((tag) => tag.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="话题标签, 用英文逗号分隔"
+            />
 
             <div className="tags">
-              {selectedDraft.hashtags.map((tag) => (
+              {editableDraft.hashtags.map((tag) => (
                 <span key={tag}>#{tag}</span>
               ))}
             </div>
 
             <div className="preview-actions">
-              <button type="button" onClick={() => void handleCopy(selectedDraft)}>
+              <button
+                type="button"
+                disabled={isSavingDraft}
+                onClick={() => void handleSaveDraft()}
+              >
+                {isSavingDraft ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                保存修改
+              </button>
+              <button type="button" onClick={() => void handleCopy(editableDraft)}>
                 <Clipboard size={16} />
                 复制
               </button>
-              <button type="button" onClick={() => handleExport(selectedDraft)}>
+              <button type="button" onClick={() => handleExport(editableDraft)}>
                 <Download size={16} />
                 导出
               </button>
               <button
                 type="button"
                 disabled={isPublishing}
-                onClick={() => void handleSimulatePublish(selectedDraft.platformId)}
+                onClick={() => void handleSimulatePublish(editableDraft.platformId)}
               >
                 {isPublishing ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
                 模拟发布
