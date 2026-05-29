@@ -4,6 +4,8 @@ import type {
   GenerateAdaptationsInput,
   ModelSettings,
   PlatformId,
+  PublishMode,
+  PublishTaskResult,
   SaveModelSettingsInput,
   SavedSession,
   SessionSummary,
@@ -21,10 +23,10 @@ const api = {
     ipcRenderer.invoke('drafts:update', input),
   generateAdaptations: (input: GenerateAdaptationsInput): Promise<SavedSession> =>
     ipcRenderer.invoke('adaptations:generate', input),
-  simulatePublish: (
-    input: { sessionId: string; platformId: PlatformId },
-  ): Promise<{ event: unknown; session: SavedSession | null }> =>
-    ipcRenderer.invoke('publish:simulate', input),
+  runPublishTask: (
+    input: { sessionId: string; platformId: PlatformId; mode: PublishMode },
+  ): Promise<{ event: unknown; task: PublishTaskResult; session: SavedSession | null }> =>
+    ipcRenderer.invoke('publish:run', input),
 };
 
 contextBridge.exposeInMainWorld('postPilot', api);

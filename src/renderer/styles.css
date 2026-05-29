@@ -450,15 +450,46 @@ button:disabled {
 
 .preview-actions {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-top: 14px;
 }
 
-.preview-actions button {
+.preview-actions button,
+.publish-mode-grid button {
   border: 1px solid var(--border);
   background: var(--white);
   color: var(--black);
+}
+
+.publish-modes {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.section-label {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.publish-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.publish-mode-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .publish-all {

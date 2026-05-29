@@ -6,6 +6,7 @@ import { createDatabase } from './db/database';
 import { createSessionRepository } from './db/sessionRepository';
 import { createSettingsRepository, type SecretCodec } from './db/settingsRepository';
 import { generateAdaptations } from './services/deepseek';
+import { createPublishTask } from './services/publishers';
 import { replacePlatformDraft } from '../shared/draftUpdates';
 import {
   createLocalDrafts,
@@ -15,6 +16,7 @@ import {
   DEEPSEEK_MODEL,
   type GenerateAdaptationsInput,
   type PlatformId,
+  type PublishMode,
   type SaveModelSettingsInput,
   type UpdateDraftInput,
 } from '../shared/types';
@@ -116,28 +118,32 @@ ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptations
 });
 
 ipcMain.handle(
-  'publish:simulate',
-  (_event, input: { sessionId: string; platformId: PlatformId }) => {
+  'publish:run',
+  (_event, input: { sessionId: string; platformId: PlatformId; mode: PublishMode }) => {
     const session = sessions.getSession(input.sessionId);
     if (!session) {
       throw new Error('未找到对应历史记录');
     }
 
-    const adapter = PLATFORM_ADAPTERS.find((item) => item.id === input.platformId);
-    if (!adapter) {
-      throw new Error('未找到对应平台');
+    const draft = session.drafts.find((item) => item.platformId === input.platformId);
+    if (!draft) {
+      throw new Error('未找到对应平台草稿');
     }
+
+    const task = createPublishTask({
+      sessionId: input.sessionId,
+      draft,
+      mode: input.mode,
+    });
 
     const event = sessions.recordPublishEvent({
       sessionId: input.sessionId,
-      platformId: input.platformId,
-      mode: 'simulated',
-      status: 'success',
-      message: `${adapter.displayName} 模拟发布已完成`,
+      ...task.event,
     });
 
     return {
       event,
+      task,
       session: sessions.getSession(input.sessionId),
     };
   },

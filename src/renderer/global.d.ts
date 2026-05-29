@@ -3,6 +3,8 @@ import type {
   GenerateAdaptationsInput,
   ModelSettings,
   PlatformId,
+  PublishMode,
+  PublishTaskResult,
   SaveModelSettingsInput,
   SavedSession,
   SessionSummary,
@@ -19,10 +21,11 @@ declare global {
       saveSettings(input: SaveModelSettingsInput): Promise<ModelSettings>;
       updateDraft(input: UpdateDraftInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;
-      simulatePublish(input: {
+      runPublishTask(input: {
         sessionId: string;
         platformId: PlatformId;
-      }): Promise<{ event: unknown; session: SavedSession | null }>;
+        mode: PublishMode;
+      }): Promise<{ event: unknown; task: PublishTaskResult; session: SavedSession | null }>;
     };
   }
 }

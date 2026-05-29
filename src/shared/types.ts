@@ -125,3 +125,21 @@ export interface DeepSeekSecret {
   apiKey: string;
   baseUrl: string;
 }
+
+export interface PublishArtifact {
+  filename: string;
+  content: string;
+  mimeType: string;
+}
+
+export interface PublishTaskInput {
+  sessionId?: string;
+  draft: PlatformDraft;
+  mode: PublishMode;
+}
+
+export interface PublishTaskResult {
+  status: 'success' | 'pending' | 'failed';
+  event: Omit<PublishEventInput, 'sessionId'>;
+  artifact?: PublishArtifact;
+}

@@ -23,6 +23,7 @@ import {
   type ModelSettings,
   type PlatformDraft,
   type PlatformId,
+  type PublishMode,
   type SavedSession,
   type SessionSummary,
 } from '../shared/types';
@@ -68,6 +69,11 @@ export function App() {
       previewDrafts[0]
     );
   }, [previewDrafts, selectedPlatform]);
+
+  const selectedAdapter = useMemo(
+    () => PLATFORM_ADAPTERS.find((adapter) => adapter.id === selectedPlatform),
+    [selectedPlatform],
+  );
 
   const editableDraft = selectedDraft
     ? draftEdits[selectedDraft.platformId] ?? selectedDraft
@@ -139,21 +145,17 @@ export function App() {
     setNotice(`已复制 ${getPlatformName(draft.platformId)} 版本`);
   }
 
-  function handleExport(draft: PlatformDraft) {
-    const text = formatDraftForClipboard(draft);
-    const adapter = PLATFORM_ADAPTERS.find((item) => item.id === draft.platformId);
-    const extension = adapter?.exportFormat === 'html' ? 'html' : 'md';
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  function downloadArtifact(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${draft.platformId}-${Date.now()}.${extension}`;
+    anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
-    setNotice(`已导出 ${getPlatformName(draft.platformId)} 版本`);
   }
 
-  async function handleSimulatePublish(platformId: PlatformId) {
+  async function handleRunPublishTask(platformId: PlatformId, mode: PublishMode) {
     if (!currentSession) {
       setNotice('请先生成并保存一次平台版本');
       return;
@@ -161,17 +163,25 @@ export function App() {
 
     setIsPublishing(true);
     try {
-      const result = await window.postPilot.simulatePublish({
+      const result = await window.postPilot.runPublishTask({
         sessionId: currentSession.id,
         platformId,
+        mode,
       });
       if (result.session) {
         setCurrentSession(result.session);
       }
+      if (result.task.artifact) {
+        downloadArtifact(
+          result.task.artifact.filename,
+          result.task.artifact.content,
+          result.task.artifact.mimeType,
+        );
+      }
       await refreshSessions();
-      setNotice(`已完成 ${getPlatformName(platformId)} 模拟发布`);
+      setNotice(result.task.event.message);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '模拟发布失败');
+      setNotice(error instanceof Error ? error.message : '发布任务执行失败');
     } finally {
       setIsPublishing(false);
     }
@@ -187,9 +197,10 @@ export function App() {
     try {
       let updated: SavedSession | null = currentSession;
       for (const draft of currentSession.drafts) {
-        const result = await window.postPilot.simulatePublish({
+        const result = await window.postPilot.runPublishTask({
           sessionId: currentSession.id,
           platformId: draft.platformId,
+          mode: 'simulated',
         });
         updated = result.session;
       }
@@ -465,18 +476,27 @@ export function App() {
                 <Clipboard size={16} />
                 复制
               </button>
-              <button type="button" onClick={() => handleExport(editableDraft)}>
-                <Download size={16} />
-                导出
-              </button>
-              <button
-                type="button"
-                disabled={isPublishing}
-                onClick={() => void handleSimulatePublish(editableDraft.platformId)}
-              >
-                {isPublishing ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                模拟发布
-              </button>
+            </div>
+
+            <div className="publish-modes">
+              <div className="section-label">发布方式</div>
+              <div className="publish-mode-grid">
+                {(selectedAdapter?.publishModes ?? []).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={isPublishing}
+                    onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
+                  >
+                    {isPublishing && mode === 'simulated' ? (
+                      <Loader2 className="spin" size={16} />
+                    ) : (
+                      getPublishModeIcon(mode)
+                    )}
+                    {getPublishModeLabel(mode)}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
         ) : (
@@ -588,6 +608,26 @@ export function App() {
 
 function getPlatformName(platformId: PlatformId): string {
   return PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
+}
+
+function getPublishModeLabel(mode: PublishMode): string {
+  const labels: Record<PublishMode, string> = {
+    simulated: '模拟发布',
+    exportOnly: '导出内容',
+    officialApi: '官方接口',
+    browserAssist: '浏览器辅助',
+  };
+  return labels[mode];
+}
+
+function getPublishModeIcon(mode: PublishMode) {
+  if (mode === 'exportOnly') {
+    return <Download size={16} />;
+  }
+  if (mode === 'simulated') {
+    return <Play size={16} />;
+  }
+  return <Send size={16} />;
 }
 
 function formatTime(value: string): string {
