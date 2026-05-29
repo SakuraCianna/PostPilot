@@ -97,6 +97,28 @@ describe('publishers', () => {
     expect(task.artifact?.content).toContain('视频简介');
   });
 
+  it('creates a browser assist package with autofill script', async () => {
+    const task = await createPublishTask({
+      draft: {
+        ...draft,
+        platformId: 'zhihu',
+        body: '# 标题\n\n正文内容',
+        hashtags: ['效率工具', '内容创作'],
+      },
+      mode: 'browserAssist',
+    });
+
+    expect(task.status).toBe('pending');
+    expect(task.event.status).toBe('pending');
+    expect(task.event.message).toContain('浏览器辅助填充包');
+    expect(task.artifact?.filename).toMatch(/^zhihu-browser-assist-.*\.html$/);
+    expect(task.artifact?.mimeType).toBe('text/html;charset=utf-8');
+    expect(task.artifact?.content).toContain('自动填充脚本');
+    expect(task.artifact?.content).toContain('发布测试');
+    expect(task.artifact?.content).toContain('正文内容');
+    expect(task.artifact?.content).toContain('https://www.zhihu.com');
+  });
+
   it('runs official connector with saved account config and receipt', async () => {
     const account: SecretPlatformAccountConfig = {
       platformId: 'wechat',
