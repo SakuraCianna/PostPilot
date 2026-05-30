@@ -48,8 +48,6 @@ npm run build
 - 打包配置在 `package.json` 的 `build.win.target` 中。
 - 当前默认输出目标为 Windows MSI。
 
-> release 标签/分支流程已按你的要求移除，不在仓库中额外使用
-
 ## 环境变量
 
 示例文件：`.env.example`（需按中文注释风格补充可选配置）

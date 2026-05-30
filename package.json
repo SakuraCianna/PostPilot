@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
-    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1",
+    "dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-msi.ps1",
     "dist:dir": "npm run build && electron-builder --dir --publish never",
     "preview": "electron-vite preview",
     "test": "vitest run",
@@ -46,7 +46,7 @@
     "asar": true,
     "compression": "maximum",
     "directories": {
-      "output": "dist-release"
+      "output": "dist-msi"
     },
     "files": [
       "out/**/*",
