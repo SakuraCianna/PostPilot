@@ -1037,7 +1037,22 @@ export function App() {
         <header className="topbar">
           <div>
             <h1>{currentView === 'settings' ? '设置' : '多平台内容适配'}</h1>
+            <p>
+              {currentView === 'settings'
+                ? '集中管理账号授权、字段配置与发布开关'
+                : '在左侧输入原始内容后，生成各平台版本并直接进入发布与复核流程'}
+            </p>
           </div>
+          {currentView === 'editor' ? (
+            <div className="topbar-actions">
+              <span className="topbar-chip">
+                {currentSession ? '已保存会话' : '未保存会话'}
+              </span>
+              <span className="topbar-chip">
+                已生成 {generatedDraftCount}/{PLATFORM_ADAPTERS.length} 平台
+              </span>
+            </div>
+          ) : null}
         </header>
 
         {currentView === 'settings' ? (
