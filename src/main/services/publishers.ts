@@ -164,7 +164,7 @@ function createBrowserAssistScript(payload: {
   ];
 
   function setValue(target, value) {
-    if (!target || !value) return false;
+    if (!target) return false;
     target.focus();
     if ('value' in target) {
       target.value = value;

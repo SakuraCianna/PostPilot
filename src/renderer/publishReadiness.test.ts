@@ -80,12 +80,12 @@ describe('publish readiness', () => {
     });
 
     expect(readiness.canRunPublishAll).toBe(true);
-    expect(readiness.publishablePlatformIds).toEqual(['wechat', 'bilibili']);
+    expect(readiness.publishablePlatformIds).toEqual(['wechat']);
     expect(readiness.items).toContainEqual(
       expect.objectContaining({
         id: 'platform-coverage',
         state: 'warning',
-        detail: '知乎, 小红书需要导出或浏览器辅助',
+        detail: '知乎, B 站, 小红书需要导出或浏览器辅助',
       }),
     );
   });

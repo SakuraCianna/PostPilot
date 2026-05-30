@@ -39,7 +39,7 @@ export const PLATFORM_ACCOUNT_SCHEMAS: Record<PlatformId, PlatformAccountSchema>
   bilibili: {
     platformId: 'bilibili',
     displayName: 'B 站',
-    supportsOfficialApi: true,
+    supportsOfficialApi: false,
     fields: [
       { key: 'clientId', label: 'Client ID', required: false },
       { key: 'clientSecret', label: 'Client Secret', required: false, secret: true },

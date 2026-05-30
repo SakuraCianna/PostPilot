@@ -27,7 +27,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     description: '适合视频简介, 分区标签和互动引导',
     tone: '轻松, 直接, 有互动感',
     capabilities: ['视频简介', '标签建议', '官方接口预留接口'],
-    publishModes: ['officialApi', 'browserAssist', 'simulated', 'exportOnly'],
+    publishModes: ['browserAssist', 'simulated', 'exportOnly'],
     limits: { titleMax: 80, bodyMax: 2000, hashtagMax: 10 },
     exportFormat: 'plain',
   },
