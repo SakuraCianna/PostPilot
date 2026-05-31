@@ -4,20 +4,17 @@ PostPilot 是一个面向创作者的多平台内容适配与发布工具。用�
 
 ## 已支持能力
 
-- 输入原始标题与正文，一键生成 公众号、知乎、B 站、小红书四个平台的内容版本
+- 输入原始标题与正文，一键生成 公众号、知乎、B 站、小红书、抖音、快手、微博、今日头条、百家号等平台的内容版本
 - 持久化保存草稿与历史记录（SQLite）
 - 每个平台独立预览适配结果, 支持复制、导出和浏览器辅助发布
 - AI 内容审查（法律风险 + 价值观风险）与待处理风险重写建议
-- 多种发布路径：
-  - 模拟发布
-  - 导出内容（txt/markdown/html）
-  - 官方 API 发布（支持授权校验与失败重试）
-  - 浏览器辅助发布（自动填充脚本）
+- 发布路径统一为模拟发布, 不接入真实发布 API
 - 平台账号配置支持：
   - 默认内置 4 个平台
   - 自定义新平台配置（手动添加/删除）
   - 已启用的自定义平台会生成通用草稿, 并进入复制、导出和浏览器辅助发布流程
-  - 启用开关、配置状态查看、授权结果展示
+  - 启用开关、配置状态查看、平台风格预设生成状态
+  - 新增自定义平台后会调用 Tavily 查询公开资料, 并在本地生成 `platform-presets/<platformId>.md`
 - 发布任务中心：进度、任务明细、重试、平台级失败原因
 - 支持设置页集中维护平台账号，主界面保留“多平台内容适配”标题
 
@@ -26,6 +23,7 @@ PostPilot 是一个面向创作者的多平台内容适配与发布工具。用�
 - Electron + React + TypeScript
 - electron-vite + Vite
 - Node 24 + 原生 `node:sqlite`
+- Tavily Search API（直接通过 `fetch` 调用, 不引入 SDK）
 - DOMPurify + marked
 - lucide-react
 - Zod + Dotenv
@@ -52,6 +50,10 @@ npm run build
 ## 环境变量
 
 示例文件：`.env.example`（需按中文注释风格补充可选配置）
+
+- `DEEPSEEK_API_KEY`: DeepSeek API 密钥
+- `DEEPSEEK_BASE_URL`: DeepSeek API 地址
+- `TAVILY_API_KEY`: Tavily API 密钥, 用于生成平台风格预设
 
 ## 开发说明
 

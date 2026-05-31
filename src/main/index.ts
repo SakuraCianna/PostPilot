@@ -9,7 +9,7 @@ import { createSettingsRepository, type SecretCodec } from './db/settingsReposit
 import { reviewContentSafety } from './services/contentReview';
 import { rewriteContentRisks } from './services/contentRewrite';
 import { generateAdaptations } from './services/deepseek';
-import { verifyOfficialAccount } from './services/officialConnectors';
+import { createPlatformPresetResearchService } from './services/platformPresetResearch';
 import { createPublishTask } from './services/publishers';
 import {
   createCustomPlatformAdapters,
@@ -21,13 +21,12 @@ import {
   type GenerateAdaptationsInput,
   type PlatformId,
   type PublishMode,
+  type ResearchPlatformPresetInput,
   type RunContentReviewInput,
   type RunContentRewriteInput,
   type SaveModelSettingsInput,
   type SavePlatformAccountInput,
-  type VerifyPlatformAccountInput,
 } from '../shared/types';
-import { isBuiltInPlatformId } from '../shared/platformAccounts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,6 +42,9 @@ const secretCodec = createSecretCodec();
 const sessions = createSessionRepository(db);
 const settings = createSettingsRepository(db, secretCodec);
 const accounts = createAccountRepository(db, secretCodec);
+const platformPresets = createPlatformPresetResearchService({
+  presetDir: path.join(app.getPath('userData'), 'platform-presets'),
+});
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -97,29 +99,15 @@ ipcMain.handle('accounts:delete', (_event, platformId: string) => {
   return accounts.listAccountConfigs();
 });
 
-ipcMain.handle('accounts:verify', async (_event, input: VerifyPlatformAccountInput) => {
-  if (!isBuiltInPlatformId(input.platformId)) {
-    return {
+ipcMain.handle(
+  'platformPresets:research',
+  async (_event, input: ResearchPlatformPresetInput) =>
+    platformPresets.researchPlatformPreset({
       platformId: input.platformId,
-      status: 'auth-failed',
-      message: '自定义平台暂不支持自动授权校验',
-      checkedAt: new Date().toISOString(),
-    };
-  }
-
-  const account = accounts.getSecretAccountConfig(input.platformId);
-  const result = await verifyOfficialAccount({
-    platformId: input.platformId,
-    account,
-  });
-
-  if (!account) {
-    return result;
-  }
-
-  accounts.updateAuthResult(result);
-  return result;
-});
+      displayName: input.displayName,
+      apiKey: process.env.TAVILY_API_KEY,
+    }),
+);
 
 ipcMain.handle('review:run', async (_event, input: RunContentReviewInput) => {
   const session = sessions.getSession(input.sessionId);
@@ -199,8 +187,7 @@ ipcMain.handle(
       throw new Error('未找到对应历史记录');
     }
 
-    const reviewedSession =
-      input.mode === 'exportOnly' ? session : await ensureContentReview(session);
+    const reviewedSession = await ensureContentReview(session);
     const draft = reviewedSession.drafts.find((item) => item.platformId === input.platformId);
     if (!draft) {
       throw new Error('未找到对应平台草稿');
@@ -215,7 +202,6 @@ ipcMain.handle(
       },
       {
         adapters: getActivePlatformAdapters(),
-        getAccountConfig: (platformId) => accounts.getSecretAccountConfig(platformId),
       },
     );
 
@@ -261,14 +247,23 @@ function normalizeTitle(title: string, body: string): string {
 }
 
 function getActivePlatformAdapters() {
-  return [...PLATFORM_ADAPTERS, ...createCustomPlatformAdapters(accounts.listAccountConfigs())];
+  return [
+    ...PLATFORM_ADAPTERS,
+    ...createCustomPlatformAdapters(
+      accounts.listAccountConfigs(),
+      platformPresets.readPresetMarkdowns(),
+    ),
+  ];
 }
 
 function withCustomPlatformDrafts(
   drafts: ReturnType<typeof createLocalDrafts>,
   content: { title: string; body: string },
 ) {
-  const customAdapters = createCustomPlatformAdapters(accounts.listAccountConfigs());
+  const customAdapters = createCustomPlatformAdapters(
+    accounts.listAccountConfigs(),
+    platformPresets.readPresetMarkdowns(),
+  );
   if (customAdapters.length === 0) {
     return drafts;
   }

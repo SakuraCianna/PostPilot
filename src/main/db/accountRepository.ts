@@ -146,7 +146,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
 
       const row = getRow(result.platformId);
       if (!row) {
-        throw new Error('更新授权状态后读取失败');
+        throw new Error('更新平台配置状态后读取失败');
       }
       return mapRow(row);
     },

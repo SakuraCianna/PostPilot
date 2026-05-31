@@ -94,7 +94,7 @@ function createEventItem(
     message: event.message,
     mode: event.mode,
     attempts: event.attempts ?? 1,
-    canRetry: event.status === 'failed' && event.mode !== 'exportOnly' && draftReady,
+    canRetry: event.status === 'failed' && event.mode === 'simulated' && draftReady,
     updatedAt: event.createdAt,
   };
 }
@@ -126,16 +126,7 @@ function getLatestPlatformEvent(
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0];
 }
 
-function getPrimaryPublishMode(adapter: PlatformAdapter): PublishMode {
-  if (adapter.publishModes.includes('officialApi')) {
-    return 'officialApi';
-  }
-  if (adapter.publishModes.includes('browserAssist')) {
-    return 'browserAssist';
-  }
-  if (adapter.publishModes.includes('exportOnly')) {
-    return 'exportOnly';
-  }
+function getPrimaryPublishMode(_adapter: PlatformAdapter): PublishMode {
   return 'simulated';
 }
 

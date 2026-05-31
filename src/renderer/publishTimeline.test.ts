@@ -32,9 +32,9 @@ describe('publish timeline helpers', () => {
         id: 'event-old',
         sessionId: 'session-1',
         platformId: 'wechat',
-        mode: 'officialApi',
+        mode: 'simulated',
         status: 'success',
-        message: '旧回执',
+        message: '旧结果',
         attempts: 1,
         createdAt: '2026-05-29T03:10:00.000Z',
       },
@@ -42,9 +42,9 @@ describe('publish timeline helpers', () => {
         id: 'event-new',
         sessionId: 'session-1',
         platformId: 'wechat',
-        mode: 'officialApi',
+        mode: 'simulated',
         status: 'failed',
-        message: '账号授权失败',
+        message: '模拟发布失败',
         attempts: 2,
         createdAt: '2026-05-29T03:20:00.000Z',
       },
@@ -63,7 +63,7 @@ describe('publish timeline helpers', () => {
       status: 'failed',
       canRetry: true,
       attempts: 2,
-      message: '账号授权失败',
+      message: '模拟发布失败',
     });
     expect(timeline.summary.failed).toBe(1);
   });
@@ -86,7 +86,7 @@ describe('publish timeline helpers', () => {
       canRetry: false,
       message: '等待发布任务',
     });
-    expect(timeline.summary.ready).toBe(4);
+    expect(timeline.summary.ready).toBe(PLATFORM_ADAPTERS.length);
   });
 
   it('summarizes success progress across all platforms', () => {
@@ -107,19 +107,21 @@ describe('publish timeline helpers', () => {
     });
 
     expect(timeline.summary.success).toBe(2);
-    expect(timeline.summary.total).toBe(4);
-    expect(timeline.summary.progress).toBe(50);
+    expect(timeline.summary.total).toBe(PLATFORM_ADAPTERS.length);
+    expect(timeline.summary.progress).toBe(
+      Math.round((2 / PLATFORM_ADAPTERS.length) * 100),
+    );
   });
 
-  it('uses browser assist as the default publish mode for custom platforms', () => {
-    const customAdapter = createCustomPlatformAdapter('douyin', '抖音');
+  it('uses simulated publishing as the default mode for custom platforms', () => {
+    const customAdapter = createCustomPlatformAdapter('custom-douyin', '抖音');
     const timeline = createPublishTimeline({
       session: {
         ...session,
         drafts: [
           ...drafts,
           {
-            platformId: 'douyin',
+            platformId: 'custom-douyin',
             title: '抖音标题',
             summary: '摘要',
             body: '正文',
@@ -131,10 +133,10 @@ describe('publish timeline helpers', () => {
       adapters: [...PLATFORM_ADAPTERS, customAdapter],
     });
 
-    expect(timeline.items.find((item) => item.platformId === 'douyin')).toMatchObject({
+    expect(timeline.items.find((item) => item.platformId === 'custom-douyin')).toMatchObject({
       platformName: '抖音',
       status: 'ready',
-      mode: 'browserAssist',
+      mode: 'simulated',
     });
   });
 });

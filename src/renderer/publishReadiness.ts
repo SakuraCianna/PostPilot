@@ -1,5 +1,4 @@
 import type {
-  PlatformAccountConfig,
   PlatformAdapter,
   PlatformId,
   SavedSession,
@@ -8,7 +7,7 @@ import type {
 export type PublishReadinessState = 'done' | 'blocked' | 'warning';
 
 export interface PublishReadinessItem {
-  id: 'drafts' | 'content-review' | 'account-auth' | 'platform-coverage';
+  id: 'drafts' | 'content-review' | 'simulation-mode' | 'platform-coverage';
   label: string;
   state: PublishReadinessState;
   detail: string;
@@ -26,17 +25,17 @@ export interface PublishReadiness {
 export function createPublishReadiness(input: {
   session: SavedSession | null;
   adapters: PlatformAdapter[];
-  accounts: PlatformAccountConfig[];
+  accounts: unknown[];
 }): PublishReadiness {
-  const officialAdapters = input.adapters.filter((adapter) =>
-    adapter.publishModes.includes('officialApi'),
+  const simulatedAdapters = input.adapters.filter((adapter) =>
+    adapter.publishModes.includes('simulated'),
   );
-  const publishablePlatformIds = officialAdapters.map((adapter) => adapter.id);
+  const publishablePlatformIds = simulatedAdapters.map((adapter) => adapter.id);
   const items = [
     createDraftsItem(input.session, input.adapters.length),
     createContentReviewItem(input.session),
-    createAccountAuthItem(input.accounts, officialAdapters),
-    createPlatformCoverageItem(input.adapters, officialAdapters),
+    createSimulationModeItem(simulatedAdapters),
+    createPlatformCoverageItem(input.adapters, simulatedAdapters),
   ];
   const blockedCount = items.filter((item) => item.state === 'blocked').length;
   const warningCount = items.filter((item) => item.state === 'warning').length;
@@ -125,46 +124,38 @@ function createContentReviewItem(session: SavedSession | null): PublishReadiness
   };
 }
 
-function createAccountAuthItem(
-  accounts: PlatformAccountConfig[],
-  officialAdapters: PlatformAdapter[],
-): PublishReadinessItem {
-  const missing = officialAdapters.filter((adapter) => {
-    const account = accounts.find((item) => item.platformId === adapter.id);
-    return !account || !account.enabled || account.status !== 'authorized';
-  });
-
-  if (missing.length > 0) {
+function createSimulationModeItem(simulatedAdapters: PlatformAdapter[]): PublishReadinessItem {
+  if (simulatedAdapters.length === 0) {
     return {
-      id: 'account-auth',
-      label: '账号授权',
+      id: 'simulation-mode',
+      label: '发布模式',
       state: 'blocked',
-      detail: missing.map((adapter) => `${adapter.displayName}待授权`).join(', '),
-      action: '到设置中完成授权',
+      detail: '没有可模拟发布的平台',
+      action: '请先启用平台适配器',
     };
   }
 
   return {
-    id: 'account-auth',
-    label: '账号授权',
+    id: 'simulation-mode',
+    label: '发布模式',
     state: 'done',
-    detail: '官方接口账号已授权',
-    action: '可以发布',
+    detail: '已切换为全模拟发布',
+    action: '可以演练发布流程',
   };
 }
 
 function createPlatformCoverageItem(
   adapters: PlatformAdapter[],
-  officialAdapters: PlatformAdapter[],
+  simulatedAdapters: PlatformAdapter[],
 ): PublishReadinessItem {
-  const unsupported = adapters.filter((adapter) => !officialAdapters.includes(adapter));
+  const unsupported = adapters.filter((adapter) => !simulatedAdapters.includes(adapter));
   if (unsupported.length > 0) {
     return {
       id: 'platform-coverage',
       label: '平台覆盖',
       state: 'warning',
-      detail: `${unsupported.map((adapter) => adapter.displayName).join(', ')}需要导出或浏览器辅助`,
-      action: '官方接口仅发布已接入平台',
+      detail: `${unsupported.map((adapter) => adapter.displayName).join(', ')}暂不支持模拟发布`,
+      action: '请检查平台适配器',
     };
   }
 
@@ -172,7 +163,7 @@ function createPlatformCoverageItem(
     id: 'platform-coverage',
     label: '平台覆盖',
     state: 'done',
-    detail: '所有平台支持官方接口',
-    action: '可以一键发布',
+    detail: '所有平台支持模拟发布',
+    action: '可以一键模拟发布',
   };
 }

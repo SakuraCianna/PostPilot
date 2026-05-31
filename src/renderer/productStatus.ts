@@ -1,6 +1,5 @@
 import type {
   ContentReviewResult,
-  PlatformAccountConfig,
   PlatformDraft,
   PublishEvent,
 } from '../shared/types';
@@ -8,7 +7,7 @@ import type {
 export type ProductStatusState = 'done' | 'blocked' | 'failed' | 'idle' | 'warning';
 
 export interface ReadinessStep {
-  id: 'draft' | 'content' | 'account' | 'receipt';
+  id: 'draft' | 'content' | 'simulation' | 'result';
   label: string;
   state: ProductStatusState;
   text: string;
@@ -16,7 +15,6 @@ export interface ReadinessStep {
 
 export function createReadinessSteps(input: {
   draft: PlatformDraft;
-  account: PlatformAccountConfig | null;
   contentReview?: ContentReviewResult | null;
   publishEvents: PublishEvent[];
 }): ReadinessStep[] {
@@ -33,13 +31,14 @@ export function createReadinessSteps(input: {
       ...getContentReviewDisplayState(input.contentReview ?? null),
     },
     {
-      id: 'account',
-      label: '账号',
-      ...getAccountDisplayState(input.account),
+      id: 'simulation',
+      label: '发布',
+      state: 'done',
+      text: '模拟模式',
     },
     {
-      id: 'receipt',
-      label: '回执',
+      id: 'result',
+      label: '结果',
       ...getPublishEventState(input.publishEvents),
     },
   ];
@@ -75,36 +74,6 @@ export function getContentReviewDisplayState(
   };
 }
 
-export function getAccountDisplayState(
-  account: PlatformAccountConfig | null,
-): Pick<ReadinessStep, 'state' | 'text'> {
-  if (!account || !account.configured || !account.enabled) {
-    return {
-      state: 'blocked',
-      text: '未配置',
-    };
-  }
-
-  if (account.status === 'authorized') {
-    return {
-      state: 'done',
-      text: '已授权',
-    };
-  }
-
-  if (account.status === 'auth-failed') {
-    return {
-      state: 'failed',
-      text: '授权失败',
-    };
-  }
-
-  return {
-    state: 'idle',
-    text: '待授权',
-  };
-}
-
 export function getPublishEventState(
   publishEvents: PublishEvent[],
 ): Pick<ReadinessStep, 'state' | 'text'> {
@@ -112,7 +81,7 @@ export function getPublishEventState(
   if (!latest) {
     return {
       state: 'idle',
-      text: '暂无回执',
+      text: '暂无结果',
     };
   }
 

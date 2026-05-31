@@ -47,7 +47,7 @@ const authorizedAccounts: PlatformAccountConfig[] = PLATFORM_ADAPTERS.map((adapt
   enabled: true,
   configured: true,
   status: 'authorized',
-  statusMessage: '授权校验通过',
+  statusMessage: '模拟发布模式',
   maskedFields: {},
 }));
 
@@ -72,7 +72,7 @@ describe('publish readiness', () => {
     );
   });
 
-  it('allows supported official platforms and warns about unsupported platforms', () => {
+  it('allows simulated publishing across all configured platforms', () => {
     const readiness = createPublishReadiness({
       session,
       adapters: PLATFORM_ADAPTERS,
@@ -80,33 +80,33 @@ describe('publish readiness', () => {
     });
 
     expect(readiness.canRunPublishAll).toBe(true);
-    expect(readiness.publishablePlatformIds).toEqual(['wechat']);
+    expect(readiness.publishablePlatformIds).toEqual(PLATFORM_ADAPTERS.map((adapter) => adapter.id));
     expect(readiness.items).toContainEqual(
       expect.objectContaining({
         id: 'platform-coverage',
-        state: 'warning',
-        detail: '知乎, B 站, 小红书需要导出或浏览器辅助',
+        state: 'done',
+        detail: '所有平台支持模拟发布',
       }),
     );
   });
 
-  it('blocks supported official platforms when account is not authorized', () => {
+  it('does not require account authorization for simulated publishing', () => {
     const readiness = createPublishReadiness({
       session,
       adapters: PLATFORM_ADAPTERS,
       accounts: authorizedAccounts.map((account) =>
         account.platformId === 'wechat'
-          ? { ...account, status: 'configured', statusMessage: '待授权' }
+          ? { ...account, status: 'configured', statusMessage: '待确认' }
           : account,
       ),
     });
 
-    expect(readiness.canRunPublishAll).toBe(false);
+    expect(readiness.canRunPublishAll).toBe(true);
     expect(readiness.items).toContainEqual(
       expect.objectContaining({
-        id: 'account-auth',
-        state: 'blocked',
-        detail: '微信公众号待授权',
+        id: 'simulation-mode',
+        state: 'done',
+        detail: '已切换为全模拟发布',
       }),
     );
   });

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   createReadinessSteps,
-  getAccountDisplayState,
   getPublishEventState,
 } from './productStatus';
-import type { PlatformAccountConfig, PlatformDraft, PublishEvent } from '../shared/types';
+import type { PlatformDraft, PublishEvent } from '../shared/types';
 
 const draft: PlatformDraft = {
   platformId: 'wechat',
@@ -15,58 +14,28 @@ const draft: PlatformDraft = {
   status: 'needs-review',
 };
 
-const account: PlatformAccountConfig = {
-  platformId: 'wechat',
-  displayName: '微信公众号',
-  builtIn: true,
-  enabled: true,
-  configured: true,
-  status: 'authorized',
-  statusMessage: '授权校验通过',
-  maskedFields: {},
-};
-
 describe('product status helpers', () => {
   it('creates blocked readiness steps when review is pending', () => {
     const steps = createReadinessSteps({
       draft,
-      account,
       publishEvents: [],
     });
 
     expect(steps.map((step) => [step.label, step.state, step.text])).toEqual([
       ['草稿', 'done', '已生成'],
       ['审查', 'blocked', '待审查'],
-      ['账号', 'done', '已授权'],
-      ['回执', 'idle', '暂无回执'],
+      ['发布', 'done', '模拟模式'],
+      ['结果', 'idle', '暂无结果'],
     ]);
   });
 
-  it('marks account as blocked when config is missing', () => {
-    const state = getAccountDisplayState({
-      platformId: 'wechat',
-      displayName: '微信公众号',
-      builtIn: true,
-      enabled: false,
-      configured: false,
-      status: 'not-configured',
-      statusMessage: '未配置账号',
-      maskedFields: {},
-    });
-
-    expect(state).toEqual({
-      state: 'blocked',
-      text: '未配置',
-    });
-  });
-
-  it('shows latest failed publish event as failed receipt state', () => {
+  it('shows latest failed publish event as failed result state', () => {
     const state = getPublishEventState([
       {
         id: 'event-1',
         sessionId: 'session-1',
         platformId: 'wechat',
-        mode: 'officialApi',
+        mode: 'simulated',
         status: 'failed',
         message: '发布失败',
         createdAt: '2026-05-29T04:00:00.000Z',
@@ -82,7 +51,6 @@ describe('product status helpers', () => {
   it('adds a blocked content review readiness step', () => {
     const steps = createReadinessSteps({
       draft,
-      account,
       contentReview: {
         status: 'blocked',
         model: 'deepseek-v4-flash',

@@ -15,7 +15,7 @@ import {
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 
 const DraftSchema = z.object({
-  platformId: z.enum(['wechat', 'zhihu', 'bilibili', 'xiaohongshu']),
+  platformId: z.string(),
   title: z.string(),
   summary: z.string(),
   body: z.string(),
@@ -105,7 +105,7 @@ async function callDeepSeek(options: GenerateAdaptationsOptions, apiKey: string)
             requiredShape: {
               drafts: [
                 {
-                  platformId: 'wechat | zhihu | bilibili | xiaohongshu',
+                  platformId: '平台标识',
                   title: 'string',
                   summary: 'string',
                   body: 'string',

@@ -14,6 +14,11 @@ describe('platform adapters', () => {
       'zhihu',
       'bilibili',
       'xiaohongshu',
+      'douyin',
+      'kuaishou',
+      'weibo',
+      'toutiao',
+      'baijiahao',
     ]);
 
     for (const adapter of PLATFORM_ADAPTERS) {
@@ -29,7 +34,7 @@ describe('platform adapters', () => {
       body: 'A practical note about adapting one article to many creator platforms.',
     });
 
-    expect(drafts).toHaveLength(4);
+    expect(drafts).toHaveLength(9);
     expect(drafts.every((draft) => draft.body.length > 0)).toBe(true);
     expect(drafts.find((draft) => draft.platformId === 'xiaohongshu')?.hashtags).toContain(
       '内容创作',
@@ -37,20 +42,23 @@ describe('platform adapters', () => {
   });
 
   it('creates usable drafts for enabled custom platforms', () => {
-    const customAdapters = createCustomPlatformAdapters([
-      {
-        platformId: 'douyin',
-        displayName: '抖音',
-        builtIn: false,
-        enabled: true,
-        configured: true,
-        status: 'configured',
-        statusMessage: '账号配置已保存',
-        maskedFields: {
-          publishUrl: 'https://creator.douyin.com/',
+    const customAdapters = createCustomPlatformAdapters(
+      [
+        {
+          platformId: 'threads',
+          displayName: 'Threads',
+          builtIn: false,
+          enabled: true,
+          configured: true,
+          status: 'configured',
+          statusMessage: '账号配置已保存',
+          maskedFields: {},
         },
+      ],
+      {
+        threads: '- 标题直接说明主题\n- 语气自然\n- 结尾增加互动',
       },
-    ]);
+    );
     const drafts = createLocalDrafts(
       {
         title: '多平台发布',
@@ -60,13 +68,13 @@ describe('platform adapters', () => {
     );
 
     expect(customAdapters[0]).toMatchObject({
-      id: 'douyin',
-      displayName: '抖音',
-      publishModes: ['browserAssist', 'simulated', 'exportOnly'],
+      id: 'threads',
+      displayName: 'Threads',
+      publishModes: ['simulated'],
     });
-    expect(drafts).toHaveLength(5);
-    expect(drafts.find((draft) => draft.platformId === 'douyin')?.body).toContain(
-      '为抖音生成的通用文本版本',
+    expect(drafts).toHaveLength(10);
+    expect(drafts.find((draft) => draft.platformId === 'threads')?.body).toContain(
+      '适配要点',
     );
   });
 

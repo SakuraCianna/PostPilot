@@ -2,11 +2,20 @@ export const DEEPSEEK_MODEL = 'deepseek-v4-flash' as const;
 
 export type DeepSeekModel = typeof DEEPSEEK_MODEL;
 
-export type BuiltInPlatformId = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+export type BuiltInPlatformId =
+  | 'wechat'
+  | 'zhihu'
+  | 'bilibili'
+  | 'xiaohongshu'
+  | 'douyin'
+  | 'kuaishou'
+  | 'weibo'
+  | 'toutiao'
+  | 'baijiahao';
 
 export type PlatformId = BuiltInPlatformId | (string & {});
 
-export type PublishMode = 'officialApi' | 'browserAssist' | 'simulated' | 'exportOnly';
+export type PublishMode = 'simulated';
 
 export type DraftStatus = 'ready' | 'needs-review';
 
@@ -44,6 +53,7 @@ export interface PlatformAdapter {
   publishModes: PublishMode[];
   limits: PlatformLimits;
   exportFormat: 'html' | 'markdown' | 'plain';
+  styleGuide?: string;
 }
 
 export interface PlatformDraft {
@@ -121,7 +131,6 @@ export interface PublishEventInput {
   mode: PublishMode;
   status: 'success' | 'failed' | 'pending';
   message: string;
-  receipt?: PublishReceipt;
   attempts?: number;
 }
 
@@ -159,22 +168,6 @@ export interface DeepSeekSecret {
   baseUrl: string;
 }
 
-export interface PublishArtifact {
-  filename: string;
-  content: string;
-  mimeType: string;
-}
-
-export interface PublishReceipt {
-  provider: PlatformId;
-  externalId?: string;
-  draftId?: string;
-  publishId?: string;
-  articleUrl?: string;
-  raw?: unknown;
-  checkedAt: string;
-}
-
 export interface PublishTaskInput {
   sessionId?: string;
   draft: PlatformDraft;
@@ -185,7 +178,6 @@ export interface PublishTaskInput {
 export interface PublishTaskResult {
   status: 'success' | 'pending' | 'failed';
   event: Omit<PublishEventInput, 'sessionId'>;
-  artifact?: PublishArtifact;
 }
 
 export interface PlatformAccountFieldSchema {
@@ -250,4 +242,22 @@ export interface VerifyPlatformAccountResult {
   status: PlatformAccountStatus;
   message: string;
   checkedAt: string;
+}
+
+export interface ResearchPlatformPresetInput {
+  platformId: string;
+  displayName: string;
+}
+
+export interface PlatformPresetResearchResult {
+  platformId: string;
+  displayName: string;
+  status: 'researched' | 'local-fallback';
+  message: string;
+  presetPath: string;
+  sources: Array<{
+    title: string;
+    url: string;
+  }>;
+  updatedAt: string;
 }

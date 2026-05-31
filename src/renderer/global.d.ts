@@ -6,14 +6,14 @@ import type {
   PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
+  PlatformPresetResearchResult,
+  ResearchPlatformPresetInput,
   RunContentReviewInput,
   RunContentRewriteInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
-  VerifyPlatformAccountInput,
-  VerifyPlatformAccountResult,
 } from '../shared/types';
 
 declare global {
@@ -27,7 +27,9 @@ declare global {
       listAccountConfigs(): Promise<PlatformAccountConfig[]>;
       saveAccountConfig(input: SavePlatformAccountInput): Promise<PlatformAccountConfig>;
       deleteAccountConfig(platformId: string): Promise<PlatformAccountConfig[]>;
-      verifyAccountConfig(input: VerifyPlatformAccountInput): Promise<VerifyPlatformAccountResult>;
+      researchPlatformPreset(
+        input: ResearchPlatformPresetInput,
+      ): Promise<PlatformPresetResearchResult>;
       runContentReview(input: RunContentReviewInput): Promise<SavedSession>;
       rewriteContentRisks(input: RunContentRewriteInput): Promise<SavedSession>;
       generateAdaptations(input: GenerateAdaptationsInput): Promise<SavedSession>;

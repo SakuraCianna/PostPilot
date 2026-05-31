@@ -15,7 +15,7 @@ describe('deepseek adaptation service', () => {
     expect(result.model).toBe(DEEPSEEK_MODEL);
     expect(result.modelStatus).toBe('local-fallback');
     expect(result.modelMessage).toBe('未配置 DeepSeek API Key, 已使用本地规则生成平台版本');
-    expect(result.drafts).toHaveLength(4);
+    expect(result.drafts).toHaveLength(9);
   });
 
   it('requests deepseek-v4-flash and fills missing platforms from local drafts', async () => {
@@ -59,7 +59,7 @@ describe('deepseek adaptation service', () => {
     expect(calls).toHaveLength(1);
     expect((calls[0] as { model: string }).model).toBe(DEEPSEEK_MODEL);
     expect(result.modelStatus).toBe('ai');
-    expect(result.drafts).toHaveLength(4);
+    expect(result.drafts).toHaveLength(9);
     expect(result.drafts[0]?.title).toBe('AI title');
   });
 });

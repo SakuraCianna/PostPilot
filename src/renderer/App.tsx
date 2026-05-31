@@ -2,7 +2,6 @@ import {
   Activity,
   Check,
   Clipboard,
-  Download,
   Eye,
   ExternalLink,
   History,
@@ -47,7 +46,7 @@ import {
 
 const INITIAL_BODY = `把你的原始内容粘贴到这里。
 
-PostPilot 会生成公众号, 知乎, B 站, 小红书四个平台版本。
+PostPilot 会生成公众号, 知乎, B 站, 小红书, 抖音等多个平台版本。
 
 第一版默认保存历史, 并支持复制, 导出和模拟发布。`;
 
@@ -68,8 +67,8 @@ const PLATFORM_CONFIG_LINKS: Record<
       url: 'https://mp.weixin.qq.com/',
     },
     {
-      label: '接口文档',
-      url: 'https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html',
+      label: '创作后台',
+      url: 'https://mp.weixin.qq.com/',
     },
   ],
   zhihu: [
@@ -94,6 +93,36 @@ const PLATFORM_CONFIG_LINKS: Record<
       url: 'https://miniapp.xiaohongshu.com/third/api-3rd/post-api-rmp-tp-token',
     },
   ],
+  douyin: [
+    {
+      label: '创作服务',
+      url: 'https://creator.douyin.com/',
+    },
+  ],
+  kuaishou: [
+    {
+      label: '创作者服务',
+      url: 'https://cp.kuaishou.com/',
+    },
+  ],
+  weibo: [
+    {
+      label: '微博首页',
+      url: 'https://weibo.com/',
+    },
+  ],
+  toutiao: [
+    {
+      label: '头条号',
+      url: 'https://mp.toutiao.com/',
+    },
+  ],
+  baijiahao: [
+    {
+      label: '百家号',
+      url: 'https://baijiahao.baidu.com/',
+    },
+  ],
 };
 
 export function App() {
@@ -108,7 +137,6 @@ export function App() {
   const [isRewritingContent, setIsRewritingContent] = useState(false);
   const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
   const [isSavingAccount, setIsSavingAccount] = useState<string | null>(null);
-  const [isVerifyingAccount, setIsVerifyingAccount] = useState<string | null>(null);
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
   const [accountForms, setAccountForms] = useState<Partial<Record<string, Record<string, string>>>>(
     {},
@@ -176,11 +204,6 @@ export function App() {
     [activePlatformAdapters, selectedDraft?.platformId, selectedPlatform],
   );
 
-  const selectedAccountConfig = useMemo(
-    () => accountConfigs.find((config) => config.platformId === selectedPlatform) ?? null,
-    [accountConfigs, selectedPlatform],
-  );
-
   const selectedPublishEvents = useMemo(
     () =>
       currentSession?.publishEvents.filter(
@@ -218,11 +241,10 @@ export function App() {
     }
     return createReadinessSteps({
       draft: editableDraft,
-      account: selectedAccountConfig,
       contentReview,
       publishEvents: selectedPublishEvents,
     });
-  }, [contentReview, editableDraft, selectedAccountConfig, selectedPublishEvents]);
+  }, [contentReview, editableDraft, selectedPublishEvents]);
 
   const generatedDraftCount = useMemo(
     () =>
@@ -394,16 +416,6 @@ export function App() {
     setNotice(`已复制 ${getPlatformName(draft.platformId, activePlatformAdapters)} 版本`);
   }
 
-  function downloadArtifact(filename: string, content: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   async function handleRunPublishTask(platformId: PlatformId, mode: PublishMode) {
     if (!currentSession) {
       setNotice('请先生成并保存一次平台版本');
@@ -419,13 +431,6 @@ export function App() {
       });
       if (result.session) {
         setCurrentSession(result.session);
-      }
-      if (result.task.artifact) {
-        downloadArtifact(
-          result.task.artifact.filename,
-          result.task.artifact.content,
-          result.task.artifact.mimeType,
-        );
       }
       await refreshSessions();
       setNotice(result.task.event.message);
@@ -449,14 +454,14 @@ export function App() {
         publishReadiness.publishablePlatformIds.includes(draft.platformId),
       );
       if (publishableDrafts.length === 0) {
-        throw new Error('当前没有可通过官方接口发布的平台');
+        throw new Error('当前没有可模拟发布的平台');
       }
 
       for (const draft of publishableDrafts) {
         const result = await window.postPilot.runPublishTask({
           sessionId: currentSession.id,
           platformId: draft.platformId,
-          mode: 'officialApi',
+          mode: 'simulated',
         });
         updated = result.session;
       }
@@ -464,9 +469,9 @@ export function App() {
         setCurrentSession(updated);
       }
       await refreshSessions();
-      setNotice(`已执行 ${publishableDrafts.length} 个官方接口发布任务`);
+      setNotice(`已完成 ${publishableDrafts.length} 个平台的模拟发布`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '真实发布失败');
+      setNotice(error instanceof Error ? error.message : '模拟发布失败');
     } finally {
       setIsPublishing(false);
     }
@@ -508,26 +513,20 @@ export function App() {
       setCustomPlatformDrafts((current) =>
         current.filter((draft) => draft.platformId !== platformId),
       );
-      setNotice(`${getAccountDisplayName(platformId, saved.displayName)}账号配置已保存`);
+      if (!saved.builtIn) {
+        const preset = await window.postPilot.researchPlatformPreset({
+          platformId,
+          displayName: saved.displayName,
+        });
+        setNotice(`${saved.displayName}配置已保存, ${preset.message}`);
+        return;
+      }
+
+      setNotice(`${getAccountDisplayName(platformId, saved.displayName)}平台配置已保存`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '保存账号配置失败');
     } finally {
       setIsSavingAccount(null);
-    }
-  }
-
-  async function handleVerifyAccount(platformId: string) {
-    setIsVerifyingAccount(platformId);
-    try {
-      const result = await window.postPilot.verifyAccountConfig({
-        platformId,
-      });
-      await refreshAccountConfigs();
-      setNotice(result.message);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '授权校验失败');
-    } finally {
-      setIsVerifyingAccount(null);
     }
   }
 
@@ -546,7 +545,7 @@ export function App() {
       setCustomPlatformDrafts((current) =>
         current.filter((draft) => draft.platformId !== platformId),
       );
-      setNotice(`${getAccountDisplayName(platformId)}账号配置已删除`);
+      setNotice(`${getAccountDisplayName(platformId)}平台配置已删除`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '删除账号配置失败');
     }
@@ -630,9 +629,6 @@ export function App() {
 
   function renderSettingsView() {
     const configuredCount = accountConfigs.filter((config) => config.configured).length;
-    const authorizedCount = accountConfigs.filter(
-      (config) => config.status === 'authorized',
-    ).length;
     const configuredBuiltInCount = accountConfigs.filter(
       (config) => config.builtIn && config.configured,
     ).length;
@@ -643,12 +639,12 @@ export function App() {
       <section className="settings-page">
         <div className="settings-summary">
           <div>
-            <span>已授权</span>
-            <strong>{authorizedCount}</strong>
+            <span>已预设</span>
+            <strong>{configuredCount}</strong>
           </div>
           <div>
-            <span>已配置</span>
-            <strong>{configuredCount}</strong>
+            <span>自定义</span>
+            <strong>{customConfigs.length}</strong>
           </div>
           <div>
             <span>未配置</span>
@@ -659,7 +655,7 @@ export function App() {
         <section className="custom-platform-panel">
           <div>
             <strong>新增平台配置</strong>
-            <span>保存账号参数和授权凭证, 后续可继续接入适配器和发布器</span>
+            <span>保存后会用 Tavily 查询平台风格, 并在后台生成 Markdown 预设</span>
           </div>
           <input
             value={newCustomPlatform.displayName}
@@ -717,7 +713,7 @@ export function App() {
                         ))}
                       </div>
                     </div>
-                    <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
+                    <span className={`account-state ${config.status}`}>模拟发布模式</span>
                   </div>
                   <label className="account-toggle">
                     <input
@@ -830,19 +826,7 @@ export function App() {
                     ) : (
                       <Save size={16} />
                     )}
-                    保存配置
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isVerifyingAccount === adapter.id || !config.configured}
-                    onClick={() => void handleVerifyAccount(adapter.id)}
-                  >
-                    {isVerifyingAccount === adapter.id ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    授权
+                    保存预设
                   </button>
                   <button
                     className="danger-button"
@@ -962,19 +946,7 @@ export function App() {
                     ) : (
                       <Save size={16} />
                     )}
-                    保存配置
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isVerifyingAccount === platformId || !config.configured}
-                    onClick={() => void handleVerifyAccount(platformId)}
-                  >
-                    {isVerifyingAccount === platformId ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    授权
+                    保存并生成预设
                   </button>
                   <button
                     className="danger-button"
@@ -1058,7 +1030,7 @@ export function App() {
             <h1>{currentView === 'settings' ? '设置' : '多平台内容适配'}</h1>
             <p>
               {currentView === 'settings'
-                ? '集中管理账号授权、字段配置与发布开关'
+                ? '集中管理平台预设、字段配置与模拟发布开关'
                 : '在左侧输入原始内容后，生成各平台版本并直接进入发布与复核流程'}
             </p>
           </div>
@@ -1275,11 +1247,7 @@ export function App() {
                   <button
                     key={mode}
                     type="button"
-                    disabled={
-                      isPublishing ||
-                      (mode !== 'exportOnly' &&
-                        !contentReviewAllowsPublish)
-                    }
+                    disabled={isPublishing || !contentReviewAllowsPublish}
                     onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
                   >
                     {isPublishing && mode === 'simulated' ? (
@@ -1363,7 +1331,7 @@ export function App() {
           onClick={() => void handlePublishAll()}
         >
           <Send size={16} />
-          一键发布已接入平台
+              一键模拟发布全部平台
         </button>
       </aside>
       ) : null}
@@ -1404,7 +1372,7 @@ function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountCon
     enabled: false,
     configured: false,
     status: 'not-configured',
-    statusMessage: '未配置账号',
+    statusMessage: '未配置平台',
     maskedFields: {},
   };
 }
@@ -1420,7 +1388,7 @@ function createCustomFallbackAccountConfig(
     enabled: true,
     configured: false,
     status: 'not-configured',
-    statusMessage: '未配置账号',
+    statusMessage: '未配置平台',
     maskedFields: {},
   };
 }
@@ -1469,21 +1437,12 @@ function getReviewIssueKindLabel(kind: ContentReviewIssue['kind']): string {
 function getPublishModeLabel(mode: PublishMode): string {
   const labels: Record<PublishMode, string> = {
     simulated: '模拟发布',
-    exportOnly: '导出内容',
-    officialApi: '官方接口',
-    browserAssist: '浏览器辅助',
   };
   return labels[mode];
 }
 
 function getPublishModeIcon(mode: PublishMode) {
-  if (mode === 'exportOnly') {
-    return <Download size={16} />;
-  }
-  if (mode === 'simulated') {
-    return <Play size={16} />;
-  }
-  return <Send size={16} />;
+  return <Play size={16} />;
 }
 
 function getPublishTimelineIcon(item: PublishTimelineItem) {

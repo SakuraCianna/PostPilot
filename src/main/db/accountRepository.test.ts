@@ -27,16 +27,14 @@ describe('account repository', () => {
       platformId: 'wechat',
       enabled: true,
       fields: {
-        appId: 'wx1234567890',
-        appSecret: 'secret-1234567890',
-        thumbMediaId: 'media-123',
+        styleNote: '保持专业, 结构清晰',
       },
     });
     const secret = repo.getSecretAccountConfig('wechat');
 
     expect(saved.configured).toBe(true);
-    expect(saved.maskedFields.appSecret).toBe('sec*******90');
-    expect(secret?.fields.appSecret).toBe('secret-1234567890');
+    expect(saved.maskedFields.styleNote).toBe('保持专业, 结构清晰');
+    expect(secret?.fields.styleNote).toBe('保持专业, 结构清晰');
 
     db.close();
   });
@@ -54,9 +52,7 @@ describe('account repository', () => {
       platformId: 'wechat',
       enabled: true,
       fields: {
-        appId: 'wx123',
-        appSecret: 'secret',
-        thumbMediaId: 'media',
+        styleNote: '公众号风格',
       },
     });
     repo.deleteAccountConfig('wechat');
@@ -69,7 +65,7 @@ describe('account repository', () => {
     db.close();
   });
 
-  it('keeps existing secret fields when a later save leaves them blank', () => {
+  it('keeps existing platform fields when a later save leaves them blank', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-accounts-'));
     tempDirs.push(dir);
     const db = createDatabase(path.join(dir, 'postpilot.sqlite'));
@@ -82,25 +78,19 @@ describe('account repository', () => {
       platformId: 'wechat',
       enabled: true,
       fields: {
-        appId: 'wx123',
-        appSecret: 'secret',
-        thumbMediaId: 'media',
+        styleNote: '公众号风格',
       },
     });
     repo.saveAccountConfig({
       platformId: 'wechat',
       enabled: true,
       fields: {
-        appId: 'wx456',
-        appSecret: '',
-        thumbMediaId: '',
+        styleNote: '',
       },
     });
 
     expect(repo.getSecretAccountConfig('wechat')?.fields).toEqual({
-      appId: 'wx456',
-      appSecret: 'secret',
-      thumbMediaId: 'media',
+      styleNote: '公众号风格',
     });
 
     db.close();
@@ -116,8 +106,8 @@ describe('account repository', () => {
     });
 
     const saved = repo.saveAccountConfig({
-      platformId: 'douyin',
-      displayName: '抖音',
+      platformId: 'threads',
+      displayName: 'Threads',
       enabled: true,
       fields: {
         accessToken: 'token-123456',
@@ -126,14 +116,14 @@ describe('account repository', () => {
     });
 
     expect(saved).toMatchObject({
-      platformId: 'douyin',
-      displayName: '抖音',
+      platformId: 'threads',
+      displayName: 'Threads',
       builtIn: false,
       configured: true,
     });
     expect(saved.maskedFields.accessToken).toBe('tok*******56');
-    expect(repo.listAccountConfigs().some((config) => config.platformId === 'douyin')).toBe(true);
-    expect(repo.getSecretAccountConfig('douyin')?.fields.workspaceId).toBe('space-1');
+    expect(repo.listAccountConfigs().some((config) => config.platformId === 'threads')).toBe(true);
+    expect(repo.getSecretAccountConfig('threads')?.fields.workspaceId).toBe('space-1');
 
     db.close();
   });
