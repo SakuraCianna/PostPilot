@@ -1,143 +1,90 @@
 import {
-  Activity,
+  ArrowLeft,
   Check,
   Clipboard,
-  Download,
-  Eye,
-  ExternalLink,
+  FileText,
   History,
   Loader2,
+  Monitor,
   Play,
   Plus,
-  RotateCcw,
-  Save,
-  Send,
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppIcon } from './components/AppIcon';
 import {
-  createLocalDrafts,
+  createCustomPlatformAdapters,
   formatDraftForClipboard,
   PLATFORM_ADAPTERS,
 } from '../shared/platformAdapters';
-import { PLATFORM_ACCOUNT_SCHEMAS } from '../shared/platformAccounts';
 import { createDraftPreviewHtml } from './previewMarkup';
-import { createPublishReadiness, type PublishReadinessItem } from './publishReadiness';
-import { createPublishTimeline, type PublishTimelineItem } from './publishTimeline';
-import { createReadinessSteps } from './productStatus';
 import {
   type ContentReviewIssue,
   type ContentReviewStatus,
   type PlatformAccountConfig,
   type PlatformDraft,
   type PlatformId,
-  type PublishMode,
   type SavedSession,
   type SessionSummary,
 } from '../shared/types';
 
-const INITIAL_BODY = `把你的原始内容粘贴到这里。
+const DEMO_TITLE = 'Transformer 架构讲解（样例）';
 
-PostPilot 会生成公众号, 知乎, B 站, 小红书四个平台版本。
+const DEMO_BODY = `Transformer 是现代大语言模型的核心架构。它最重要的变化, 是不再像传统循环神经网络那样按顺序一个词一个词处理文本, 而是让模型在同一层里同时观察整段输入, 判断哪些词和当前词最相关。
 
-第一版默认保存历史, 并支持复制, 导出和模拟发布。`;
+它的关键机制叫自注意力。简单理解, 当模型看到一句话里的某个词时, 会给句子中其他词分配不同权重。权重越高, 说明这个词对理解当前词越重要。比如在“苹果发布了新芯片, 它提升了推理速度”这句话里, 模型需要知道“它”更可能指向“新芯片”, 而不是“苹果”。
 
-const SIDEBAR_WIDTH = 280;
-const MIN_WORKSPACE_WIDTH = 460;
-const PREVIEW_MIN_WIDTH = 340;
-const PREVIEW_MAX_WIDTH = 760;
-const RESIZER_WIDTH = 8;
-const NOTICE_TTL_MS = 5000;
+为了让模型从多个角度理解上下文, Transformer 会使用多头注意力。每个注意力头关注的信息不完全相同, 有的头可能关注主谓关系, 有的头可能关注指代关系, 还有的头会捕捉长距离依赖。多个结果合并后, 模型就能得到更丰富的语义表示。
 
-const PLATFORM_CONFIG_LINKS: Record<
-  PlatformId,
-  Array<{ label: string; url: string }>
-> = {
-  wechat: [
-    {
-      label: '基本配置',
-      url: 'https://mp.weixin.qq.com/',
-    },
-    {
-      label: '接口文档',
-      url: 'https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html',
-    },
-  ],
-  zhihu: [
-    {
-      label: '开放平台',
-      url: 'https://developer.zhihu.com/',
-    },
-  ],
-  bilibili: [
-    {
-      label: '开放平台',
-      url: 'https://openhome.bilibili.com/doc',
-    },
-  ],
-  xiaohongshu: [
-    {
-      label: '开放平台',
-      url: 'https://school.xiaohongshu.com/en/open/quick-start/summary.html',
-    },
-    {
-      label: '服务商接口',
-      url: 'https://miniapp.xiaohongshu.com/third/api-3rd/post-api-rmp-tp-token',
-    },
-  ],
-};
+除了注意力层, Transformer 还包含前馈网络、残差连接、层归一化和位置编码。位置编码负责告诉模型词语顺序, 残差连接让深层网络更容易训练, 层归一化则让训练过程更稳定。
+
+Transformer 的优势在于并行计算能力强, 也更擅长捕捉长距离关系。无论是机器翻译、文本摘要、代码生成, 还是今天常见的对话式 AI, 背后都能看到 Transformer 思想的影子。`;
+
+const NOTICE_TTL_MS = 3000;
+
+type AppView = 'editor' | 'results' | 'settings';
+type PublishProgress = PlatformId | 'all' | null;
 
 export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [currentSession, setCurrentSession] = useState<SavedSession | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformId>('wechat');
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState(INITIAL_BODY);
+  const [title, setTitle] = useState(DEMO_TITLE);
+  const [body, setBody] = useState(DEMO_BODY);
+  const [currentView, setCurrentView] = useState<AppView>('editor');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [isReviewingContent, setIsReviewingContent] = useState(false);
   const [isRewritingContent, setIsRewritingContent] = useState(false);
-  const [currentView, setCurrentView] = useState<'editor' | 'settings'>('editor');
-  const [isSavingAccount, setIsSavingAccount] = useState<string | null>(null);
-  const [isVerifyingAccount, setIsVerifyingAccount] = useState<string | null>(null);
+  const [publishingPlatform, setPublishingPlatform] = useState<PublishProgress>(null);
+  const [isCreatingPreset, setIsCreatingPreset] = useState(false);
+  const [deletingPreset, setDeletingPreset] = useState<string | null>(null);
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
-  const [accountForms, setAccountForms] = useState<Partial<Record<string, Record<string, string>>>>(
-    {},
-  );
-  const [customPlatformDrafts, setCustomPlatformDrafts] = useState<
-    Array<{ platformId: string; displayName: string }>
-  >([]);
   const [newCustomPlatform, setNewCustomPlatform] = useState({
-    platformId: '',
     displayName: '',
   });
-  const [customAccountFields, setCustomAccountFields] = useState<
-    Partial<Record<string, Array<{ id: string; key: string; value: string }>>>
-  >({});
   const [notice, setNotice] = useState('');
-  const [previewWidth, setPreviewWidth] = useState(() => getDefaultPreviewWidth());
+
+  const customPresetConfigs = useMemo(
+    () => accountConfigs.filter((config) => !config.builtIn),
+    [accountConfigs],
+  );
+  const activePlatformAdapters = useMemo(
+    () => [...PLATFORM_ADAPTERS, ...createCustomPlatformAdapters(accountConfigs)],
+    [accountConfigs],
+  );
 
   useEffect(() => {
     window.postPilot.getBootstrap().then((payload) => {
       setSessions(payload.sessions);
       setAccountConfigs(payload.accountConfigs);
     });
-  }, []);
-
-  useEffect(() => {
-    function handleResize() {
-      setPreviewWidth((current) => clampPreviewWidth(current));
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -149,37 +96,51 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const previewDrafts = useMemo(() => {
-    return currentSession?.drafts ?? createLocalDrafts({ title, body });
-  }, [body, currentSession, title]);
+  const resultDrafts = useMemo(() => {
+    if (!currentSession) {
+      return [];
+    }
 
-  const selectedDraft = useMemo(() => {
-    return (
-      previewDrafts.find((draft) => draft.platformId === selectedPlatform) ??
-      previewDrafts[0]
+    return currentSession.drafts.filter((draft) =>
+      activePlatformAdapters.some((adapter) => adapter.id === draft.platformId),
     );
-  }, [previewDrafts, selectedPlatform]);
+  }, [activePlatformAdapters, currentSession]);
 
+  useEffect(() => {
+    const selectedExists = resultDrafts.some((draft) => draft.platformId === selectedPlatform);
+    if (!selectedExists && resultDrafts[0]) {
+      setSelectedPlatform(resultDrafts[0].platformId);
+    }
+  }, [resultDrafts, selectedPlatform]);
+
+  const selectedDraft =
+    resultDrafts.find((draft) => draft.platformId === selectedPlatform) ?? resultDrafts[0] ?? null;
   const selectedAdapter = useMemo(
-    () => PLATFORM_ADAPTERS.find((adapter) => adapter.id === selectedPlatform),
-    [selectedPlatform],
-  );
-
-  const selectedAccountConfig = useMemo(
-    () => accountConfigs.find((config) => config.platformId === selectedPlatform) ?? null,
-    [accountConfigs, selectedPlatform],
-  );
-
-  const selectedPublishEvents = useMemo(
     () =>
-      currentSession?.publishEvents.filter(
-        (event) => event.platformId === selectedPlatform,
-      ) ?? [],
-    [currentSession?.publishEvents, selectedPlatform],
+      activePlatformAdapters.find(
+        (adapter) => adapter.id === (selectedDraft?.platformId ?? selectedPlatform),
+      ) ?? null,
+    [activePlatformAdapters, selectedDraft?.platformId, selectedPlatform],
   );
+  const publishStatusByPlatform = useMemo(() => {
+    const map = new Map<PlatformId, SavedSession['publishEvents'][number]>();
+    const events = [...(currentSession?.publishEvents ?? [])].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
 
+    for (const event of events) {
+      if (!map.has(event.platformId)) {
+        map.set(event.platformId, event);
+      }
+    }
+
+    return map;
+  }, [currentSession?.publishEvents]);
+
+  const selectedPublishEvent = selectedDraft
+    ? publishStatusByPlatform.get(selectedDraft.platformId)
+    : undefined;
   const contentReview = currentSession?.contentReview ?? null;
-
   const selectedReviewIssues = useMemo(() => {
     return (
       contentReview?.issues.filter(
@@ -187,70 +148,46 @@ export function App() {
       ) ?? []
     );
   }, [contentReview, selectedPlatform]);
-
-  const editableDraft = selectedDraft;
-
-  const draftPreviewHtml = useMemo(() => {
-    if (!editableDraft || !selectedAdapter) {
-      return '';
-    }
-    return createDraftPreviewHtml(
-      editableDraft,
-      selectedAdapter.exportFormat,
-      sanitizeDraftPreviewHtml,
-    );
-  }, [editableDraft, selectedAdapter]);
-
-  const readinessSteps = useMemo(() => {
-    if (!editableDraft) {
-      return [];
-    }
-    return createReadinessSteps({
-      draft: editableDraft,
-      account: selectedAccountConfig,
-      contentReview,
-      publishEvents: selectedPublishEvents,
-    });
-  }, [contentReview, editableDraft, selectedAccountConfig, selectedPublishEvents]);
-
-  const generatedDraftCount = useMemo(
-    () =>
-      previewDrafts.filter((draft) => draft.status === 'ready').length,
-    [previewDrafts],
-  );
-
-  const allPlatformDraftsGenerated = previewDrafts.length === PLATFORM_ADAPTERS.length;
-
-  const publishTimeline = useMemo(
-    () =>
-      createPublishTimeline({
-        session: currentSession,
-        adapters: PLATFORM_ADAPTERS,
-      }),
-    [currentSession],
-  );
-
-  const publishReadiness = useMemo(
-    () =>
-      createPublishReadiness({
-        session: currentSession,
-        adapters: PLATFORM_ADAPTERS,
-        accounts: accountConfigs,
-      }),
-    [accountConfigs, currentSession],
-  );
-
   const legalIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'legal').length ?? 0;
   const valuesIssueCount =
     contentReview?.issues.filter((issue) => issue.kind === 'values').length ?? 0;
   const contentReviewHasIssues = (contentReview?.issues.length ?? 0) > 0;
   const contentReviewAllowsPublish = Boolean(contentReview) && contentReview?.status !== 'blocked';
-  const canRunPublishAll =
-    allPlatformDraftsGenerated && contentReviewAllowsPublish && publishReadiness.canRunPublishAll;
-  const shellStyle = {
-    '--preview-width': `${previewWidth}px`,
-  } as CSSProperties;
+  const isPublishing = publishingPlatform !== null;
+
+  const draftPreviewHtml = useMemo(() => {
+    if (!selectedDraft || !selectedAdapter) {
+      return '';
+    }
+
+    return createDraftPreviewHtml(
+      selectedDraft,
+      selectedAdapter.exportFormat,
+      sanitizeDraftPreviewHtml,
+    );
+  }, [selectedAdapter, selectedDraft]);
+
+  const generatedDraftCount = resultDrafts.length;
+  const publishStats = useMemo(() => {
+    return resultDrafts.reduce(
+      (stats, draft) => {
+        const event = publishStatusByPlatform.get(draft.platformId);
+        if (event?.status === 'success') {
+          stats.success += 1;
+        } else if (event?.status === 'failed') {
+          stats.failed += 1;
+        } else {
+          stats.waiting += 1;
+        }
+        return stats;
+      },
+      { success: 0, failed: 0, waiting: 0 },
+    );
+  }, [publishStatusByPlatform, resultDrafts]);
+  const activePresetCount =
+    PLATFORM_ADAPTERS.length +
+    customPresetConfigs.filter((config) => config.enabled && config.configured).length;
 
   async function refreshSessions() {
     setSessions(await window.postPilot.listSessions());
@@ -262,7 +199,7 @@ export function App() {
 
   async function handleGenerate() {
     setIsGenerating(true);
-    setNotice('正在使用 DeepSeek 适配内容');
+    setNotice('正在生成平台版本');
 
     try {
       const saved = await window.postPilot.generateAdaptations({
@@ -273,8 +210,10 @@ export function App() {
       setCurrentSession(saved);
       setTitle(saved.title);
       setBody(saved.sourceBody);
+      setSelectedPlatform(saved.drafts[0]?.platformId ?? 'wechat');
+      setCurrentView('results');
       await refreshSessions();
-      setNotice(saved.modelMessage);
+      setNotice(saved.modelMessage || '平台版本已生成');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '生成失败');
     } finally {
@@ -296,6 +235,7 @@ export function App() {
         sessionId: currentSession.id,
       });
       setCurrentSession(reviewed);
+      setCurrentView('results');
       await refreshSessions();
       setNotice(reviewed.contentReview?.message ?? '内容审查已完成');
     } catch (error) {
@@ -315,14 +255,11 @@ export function App() {
     setNotice('正在优化风险表达');
 
     try {
-      if (!currentSession.contentReview?.issues.length) {
-        throw new Error('请先完成内容审查');
-      }
-
       const rewritten = await window.postPilot.rewriteContentRisks({
         sessionId: currentSession.id,
       });
       setCurrentSession(rewritten);
+      setCurrentView('results');
       await refreshSessions();
       setNotice('风险表达已优化, 请重新进行内容审查');
     } catch (error) {
@@ -343,78 +280,55 @@ export function App() {
     setTitle(loaded.title);
     setBody(loaded.sourceBody);
     setSelectedPlatform(loaded.drafts[0]?.platformId ?? 'wechat');
+    setCurrentView('results');
     setNotice(loaded.modelMessage);
   }
 
   function handleNewSession() {
     setCurrentSession(null);
-    setTitle('');
-    setBody('');
+    setTitle(DEMO_TITLE);
+    setBody(DEMO_BODY);
     setSelectedPlatform('wechat');
-    setNotice('已创建新的本地草稿');
-  }
-
-  function handlePreviewResizeStart() {
-    document.body.classList.add('is-resizing-preview');
-
-    function handlePointerMove(event: PointerEvent) {
-      setPreviewWidth(clampPreviewWidth(window.innerWidth - event.clientX));
-    }
-
-    function handlePointerUp() {
-      document.body.classList.remove('is-resizing-preview');
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    }
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
+    setCurrentView('editor');
+    setNotice('已载入演示文章');
   }
 
   async function handleCopy(draft: PlatformDraft) {
-    await navigator.clipboard.writeText(formatDraftForClipboard(draft));
-    setNotice(`已复制 ${getPlatformName(draft.platformId)} 版本`);
+    const adapter = activePlatformAdapters.find((item) => item.id === draft.platformId);
+    await navigator.clipboard.writeText(formatDraftForClipboard(draft, adapter));
+    setNotice(`已复制 ${getPlatformName(draft.platformId, activePlatformAdapters)} 版本`);
   }
 
-  function downloadArtifact(filename: string, content: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleRunPublishTask(platformId: PlatformId, mode: PublishMode) {
+  async function handleRunPublishTask(platformId: PlatformId) {
     if (!currentSession) {
       setNotice('请先生成并保存一次平台版本');
       return;
     }
+    if (!contentReview) {
+      setNotice('请先完成 AI 内容审查');
+      return;
+    }
+    if (contentReview.status === 'blocked') {
+      setNotice('内容审查已拦截, 请先优化风险表达');
+      return;
+    }
 
-    setIsPublishing(true);
+    setPublishingPlatform(platformId);
     try {
       const result = await window.postPilot.runPublishTask({
         sessionId: currentSession.id,
         platformId,
-        mode,
+        mode: 'simulated',
       });
       if (result.session) {
         setCurrentSession(result.session);
       }
-      if (result.task.artifact) {
-        downloadArtifact(
-          result.task.artifact.filename,
-          result.task.artifact.content,
-          result.task.artifact.mimeType,
-        );
-      }
       await refreshSessions();
       setNotice(result.task.event.message);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '发布任务执行失败');
+      setNotice(error instanceof Error ? error.message : '模拟发布失败');
     } finally {
-      setIsPublishing(false);
+      setPublishingPlatform(null);
     }
   }
 
@@ -423,22 +337,27 @@ export function App() {
       setNotice('请先生成并保存一次平台版本');
       return;
     }
+    if (!contentReview) {
+      setNotice('请先完成 AI 内容审查');
+      return;
+    }
+    if (contentReview.status === 'blocked') {
+      setNotice('内容审查已拦截, 请先优化风险表达');
+      return;
+    }
+    if (resultDrafts.length === 0) {
+      setNotice('当前没有可模拟发布的平台版本');
+      return;
+    }
 
-    setIsPublishing(true);
+    setPublishingPlatform('all');
     try {
       let updated: SavedSession | null = currentSession;
-      const publishableDrafts = currentSession.drafts.filter((draft) =>
-        publishReadiness.publishablePlatformIds.includes(draft.platformId),
-      );
-      if (publishableDrafts.length === 0) {
-        throw new Error('当前没有可通过官方接口发布的平台');
-      }
-
-      for (const draft of publishableDrafts) {
+      for (const draft of resultDrafts) {
         const result = await window.postPilot.runPublishTask({
           sessionId: currentSession.id,
           platformId: draft.platformId,
-          mode: 'officialApi',
+          mode: 'simulated',
         });
         updated = result.session;
       }
@@ -446,206 +365,401 @@ export function App() {
         setCurrentSession(updated);
       }
       await refreshSessions();
-      setNotice(`已执行 ${publishableDrafts.length} 个官方接口发布任务`);
+      setNotice(`已完成 ${resultDrafts.length} 个平台的模拟发布`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '真实发布失败');
+      setNotice(error instanceof Error ? error.message : '模拟发布失败');
     } finally {
-      setIsPublishing(false);
+      setPublishingPlatform(null);
     }
   }
 
-  async function handleSaveAccount(platformId: string, displayName?: string) {
-    setIsSavingAccount(platformId);
-    try {
-      const currentConfig = accountConfigs.find((config) => config.platformId === platformId);
-      const form = accountForms[platformId] ?? {};
-      const { enabled, ...fields } = form;
-      const customFields = Object.fromEntries(
-        (customAccountFields[platformId] ?? [])
-          .map((field) => [field.key.trim(), field.value.trim()])
-          .filter(([key, value]) => key && value),
-      );
-      const saved = await window.postPilot.saveAccountConfig({
-        platformId,
-        displayName: displayName ?? currentConfig?.displayName,
-        enabled: enabled ? enabled === 'true' : currentConfig?.enabled ?? true,
-        fields: {
-          ...fields,
-          ...customFields,
-        },
-      });
-      setAccountConfigs((current) =>
-        current.some((config) => config.platformId === platformId)
-          ? current.map((config) => (config.platformId === platformId ? saved : config))
-          : [...current, saved],
-      );
-      setAccountForms((current) => ({
-        ...current,
-        [platformId]: {},
-      }));
-      setCustomAccountFields((current) => ({
-        ...current,
-        [platformId]: [],
-      }));
-      setCustomPlatformDrafts((current) =>
-        current.filter((draft) => draft.platformId !== platformId),
-      );
-      setNotice(`${getAccountDisplayName(platformId, saved.displayName)}账号配置已保存`);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '保存账号配置失败');
-    } finally {
-      setIsSavingAccount(null);
-    }
-  }
-
-  async function handleVerifyAccount(platformId: string) {
-    setIsVerifyingAccount(platformId);
-    try {
-      const result = await window.postPilot.verifyAccountConfig({
-        platformId,
-      });
-      await refreshAccountConfigs();
-      setNotice(result.message);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '授权校验失败');
-    } finally {
-      setIsVerifyingAccount(null);
-    }
-  }
-
-  async function handleDeleteAccount(platformId: string) {
-    try {
-      const configs = await window.postPilot.deleteAccountConfig(platformId);
-      setAccountConfigs(configs);
-      setAccountForms((current) => ({
-        ...current,
-        [platformId]: {},
-      }));
-      setCustomAccountFields((current) => ({
-        ...current,
-        [platformId]: [],
-      }));
-      setCustomPlatformDrafts((current) =>
-        current.filter((draft) => draft.platformId !== platformId),
-      );
-      setNotice(`${getAccountDisplayName(platformId)}账号配置已删除`);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : '删除账号配置失败');
-    }
-  }
-
-  function updateAccountField(platformId: string, key: string, value: string) {
-    setAccountForms((current) => ({
-      ...current,
-      [platformId]: {
-        ...current[platformId],
-        [key]: value,
-      },
-    }));
-  }
-
-  function addCustomPlatform() {
-    const platformId = normalizeCustomPlatformId(newCustomPlatform.platformId);
+  async function handleCreateCustomPreset() {
     const displayName = newCustomPlatform.displayName.trim();
+    const platformId = createCustomPlatformId(displayName);
 
-    if (!displayName || !platformId) {
-      setNotice('请填写自定义平台名称和平台标识');
+    if (!displayName) {
+      setNotice('请填写平台名称');
+      return;
+    }
+    if (!platformId) {
+      setNotice('平台名称不能只包含特殊字符');
       return;
     }
     if (
       PLATFORM_ADAPTERS.some((adapter) => adapter.id === platformId) ||
-      accountConfigs.some((config) => config.platformId === platformId) ||
-      customPlatformDrafts.some((draft) => draft.platformId === platformId)
+      accountConfigs.some(
+        (config) => config.platformId === platformId || config.displayName === displayName,
+      )
     ) {
-      setNotice('平台标识已存在');
+      setNotice('平台预设已存在');
       return;
     }
 
-    setCustomPlatformDrafts((current) => [...current, { platformId, displayName }]);
-    setNewCustomPlatform({ platformId: '', displayName: '' });
-    setNotice('已添加自定义平台配置卡片');
+    setIsCreatingPreset(true);
+    try {
+      const saved = await window.postPilot.saveAccountConfig({
+        platformId,
+        displayName,
+        enabled: true,
+        fields: {},
+      });
+      const preset = await window.postPilot.researchPlatformPreset({
+        platformId,
+        displayName: saved.displayName,
+      });
+      await refreshAccountConfigs();
+      setNewCustomPlatform({ displayName: '' });
+      setNotice(`${saved.displayName} 预设已创建, ${preset.message}`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '创建平台预设失败');
+    } finally {
+      setIsCreatingPreset(false);
+    }
   }
 
-  function removeCustomPlatformDraft(platformId: string) {
-    setCustomPlatformDrafts((current) =>
-      current.filter((draft) => draft.platformId !== platformId),
+  async function handleToggleCustomPreset(config: PlatformAccountConfig) {
+    try {
+      const saved = await window.postPilot.saveAccountConfig({
+        platformId: config.platformId,
+        displayName: config.displayName,
+        enabled: !config.enabled,
+        fields: {},
+      });
+      setAccountConfigs((current) =>
+        current.map((item) => (item.platformId === saved.platformId ? saved : item)),
+      );
+      setNotice(`${saved.displayName} 预设已${saved.enabled ? '启用' : '停用'}`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '更新平台预设失败');
+    }
+  }
+
+  async function handleDeleteCustomPreset(platformId: string) {
+    const target = accountConfigs.find((config) => config.platformId === platformId);
+    setDeletingPreset(platformId);
+    try {
+      const configs = await window.postPilot.deleteAccountConfig(platformId);
+      setAccountConfigs(configs);
+      setNotice(`${target?.displayName ?? getPlatformName(platformId)} 预设已删除`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '删除平台预设失败');
+    } finally {
+      setDeletingPreset(null);
+    }
+  }
+
+  function toggleSettingsView() {
+    if (currentView === 'settings') {
+      setCurrentView(currentSession ? 'results' : 'editor');
+      return;
+    }
+    void refreshAccountConfigs();
+    setCurrentView('settings');
+  }
+
+  function renderEditorView() {
+    return (
+      <section className="editor-pane">
+        <input
+          className="title-input"
+          placeholder="标题"
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setCurrentSession(null);
+          }}
+        />
+        <textarea
+          className="body-input"
+          placeholder="输入或粘贴你的原始内容"
+          value={body}
+          onChange={(event) => {
+            setBody(event.target.value);
+            setCurrentSession(null);
+          }}
+        />
+        <div className="editor-actions">
+          <span>{body.length} 字符</span>
+          <button
+            className="primary-button generate-button"
+            type="button"
+            disabled={isGenerating || body.trim().length === 0}
+            onClick={() => void handleGenerate()}
+          >
+            {isGenerating ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
+            生成平台版本
+          </button>
+        </div>
+      </section>
     );
-    setCustomAccountFields((current) => ({
-      ...current,
-      [platformId]: [],
-    }));
   }
 
-  function addCustomAccountField(platformId: string) {
-    setCustomAccountFields((current) => ({
-      ...current,
-      [platformId]: [
-        ...(current[platformId] ?? []),
-        {
-          id: crypto.randomUUID(),
-          key: '',
-          value: '',
-        },
-      ],
-    }));
+  function renderResultsView() {
+    if (!currentSession || resultDrafts.length === 0) {
+      return (
+        <section className="empty-results">
+          <Sparkles size={28} />
+          <strong>还没有生成平台版本</strong>
+          <button type="button" onClick={() => setCurrentView('editor')}>
+            返回编辑
+          </button>
+        </section>
+      );
+    }
+
+    return (
+      <section className="results-page">
+        <aside className="platform-list-panel">
+          <div className="panel-heading">
+            <span>平台版本</span>
+            <strong>{generatedDraftCount}</strong>
+          </div>
+          <div className="platform-version-list">
+            {resultDrafts.map((draft) => {
+              const event = publishStatusByPlatform.get(draft.platformId);
+              const adapter = activePlatformAdapters.find((item) => item.id === draft.platformId);
+              const isActive = selectedDraft?.platformId === draft.platformId;
+              return (
+                <button
+                  className={`platform-version-item ${isActive ? 'active' : ''}`}
+                  key={draft.platformId}
+                  type="button"
+                  onClick={() => setSelectedPlatform(draft.platformId)}
+                >
+                  <strong>{adapter?.displayName ?? draft.platformId}</strong>
+                  <span>{draft.title}</span>
+                  <small className={event?.status ?? draft.status}>
+                    {getPlatformListStateText(draft, event?.status)}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <section className="result-detail">
+          {selectedDraft ? (
+            <>
+              <div className="result-toolbar">
+                <button type="button" onClick={() => setCurrentView('editor')}>
+                  <ArrowLeft size={16} />
+                  返回编辑
+                </button>
+                <button
+                  type="button"
+                  disabled={isReviewingContent || isRewritingContent}
+                  onClick={() => void handleRunContentReview()}
+                >
+                  {isReviewingContent ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : contentReview?.status === 'passed' ? (
+                    <ShieldCheck size={16} />
+                  ) : (
+                    <ShieldAlert size={16} />
+                  )}
+                  AI 审查
+                </button>
+                <button
+                  type="button"
+                  disabled={isReviewingContent || isRewritingContent || !contentReviewHasIssues}
+                  onClick={() => void handleRewriteContentRisks()}
+                >
+                  {isRewritingContent ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
+                  优化风险表达
+                </button>
+                <button type="button" onClick={() => void handleCopy(selectedDraft)}>
+                  <Clipboard size={16} />
+                  复制
+                </button>
+                <button
+                  className="dark-action"
+                  type="button"
+                  disabled={isPublishing || !contentReviewAllowsPublish}
+                  onClick={() => void handleRunPublishTask(selectedDraft.platformId)}
+                >
+                  {publishingPlatform === selectedDraft.platformId ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <Play size={16} />
+                  )}
+                  模拟发布
+                </button>
+                <button
+                  className="dark-action"
+                  type="button"
+                  disabled={isPublishing || !contentReviewAllowsPublish}
+                  onClick={() => void handlePublishAll()}
+                >
+                  {publishingPlatform === 'all' ? (
+                    <Loader2 className="spin" size={16} />
+                  ) : (
+                    <Play size={16} />
+                  )}
+                  全部模拟发布
+                </button>
+              </div>
+
+              <div className="result-status-row">
+                <div className={`review-pill ${contentReview?.status ?? 'not-reviewed'}`}>
+                  {contentReview?.status === 'passed' ? <Check size={15} /> : <X size={15} />}
+                  {getContentReviewStatusText(contentReview?.status)}
+                </div>
+                <div className="publish-pill">
+                  模拟发布: {getPublishEventText(selectedPublishEvent)}
+                </div>
+                <div className="publish-pill">
+                  完成 {publishStats.success} / 失败 {publishStats.failed} / 等待{' '}
+                  {publishStats.waiting}
+                </div>
+              </div>
+
+              {renderContentReviewCard()}
+
+              <div className="version-layout">
+                <article className="version-document">
+                  <div className="section-kicker">生成版本</div>
+                  <h2>{selectedDraft.title}</h2>
+                  <p className="version-summary">{selectedDraft.summary || '暂无摘要'}</p>
+                  {selectedDraft.warnings && selectedDraft.warnings.length > 0 ? (
+                    <div className="warnings">
+                      {selectedDraft.warnings.map((warning) => (
+                        <span key={warning}>{warning}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <pre>{selectedDraft.body}</pre>
+                  <div className="tags">
+                    {selectedDraft.hashtags.map((tag) => (
+                      <span key={tag}>#{tag}</span>
+                    ))}
+                  </div>
+                </article>
+
+                <section className="device-previews">
+                  <article className="device-card">
+                    <div className="device-heading">
+                      <Smartphone size={16} />
+                      <span>手机端展示</span>
+                    </div>
+                    <div className="phone-frame">
+                      <div className="phone-status" aria-hidden="true" />
+                      <article
+                        className="device-render phone-render"
+                        dangerouslySetInnerHTML={{ __html: draftPreviewHtml }}
+                      />
+                    </div>
+                  </article>
+
+                  <article className="device-card">
+                    <div className="device-heading">
+                      <Monitor size={16} />
+                      <span>PC 端预览</span>
+                    </div>
+                    <div className="desktop-frame">
+                      <div className="desktop-bar" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                      <article
+                        className="device-render desktop-render"
+                        dangerouslySetInnerHTML={{ __html: draftPreviewHtml }}
+                      />
+                    </div>
+                  </article>
+                </section>
+              </div>
+            </>
+          ) : (
+            <div className="empty-results">没有找到当前平台版本</div>
+          )}
+        </section>
+      </section>
+    );
   }
 
-  function updateCustomAccountField(
-    platformId: string,
-    id: string,
-    patch: Partial<{ key: string; value: string }>,
-  ) {
-    setCustomAccountFields((current) => ({
-      ...current,
-      [platformId]: (current[platformId] ?? []).map((field) =>
-        field.id === id ? { ...field, ...patch } : field,
-      ),
-    }));
-  }
+  function renderContentReviewCard() {
+    return (
+      <section className={`content-review-card ${contentReview?.status ?? 'not-reviewed'}`}>
+        <div className="content-review-heading">
+          <div>
+            <span>AI 内容审查</span>
+            <strong>{getContentReviewStatusText(contentReview?.status)}</strong>
+          </div>
+          <div className="content-review-metrics">
+            <span className="legal">法律 {legalIssueCount}</span>
+            <span className="values">价值观 {valuesIssueCount}</span>
+          </div>
+        </div>
 
-  function removeCustomAccountField(platformId: string, id: string) {
-    setCustomAccountFields((current) => ({
-      ...current,
-      [platformId]: (current[platformId] ?? []).filter((field) => field.id !== id),
-    }));
+        {contentReviewHasIssues ? (
+          <p className="review-hint">法律风险会标红, 价值观风险会标黄。优化后需要重新审查。</p>
+        ) : null}
+
+        {contentReview ? (
+          selectedReviewIssues.length > 0 ? (
+            <div className="content-review-issues">
+              {selectedReviewIssues.map((issue) => (
+                <article className={`content-review-issue ${issue.kind}`} key={issue.id}>
+                  <div>
+                    <span>{getReviewIssueKindLabel(issue.kind)}</span>
+                    <strong>{issue.snippet}</strong>
+                  </div>
+                  <p>{issue.reason}</p>
+                  <small>{issue.suggestion}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="review-empty">当前平台未发现明显风险</p>
+          )
+        ) : (
+          <p className="review-empty">模拟发布前需要先完成 AI 内容审查</p>
+        )}
+      </section>
+    );
   }
 
   function renderSettingsView() {
-    const configuredCount = accountConfigs.filter((config) => config.configured).length;
-    const authorizedCount = accountConfigs.filter(
-      (config) => config.status === 'authorized',
-    ).length;
-    const configuredBuiltInCount = accountConfigs.filter(
-      (config) => config.builtIn && config.configured,
-    ).length;
-    const missingCount = PLATFORM_ADAPTERS.length - configuredBuiltInCount;
-    const customConfigs = accountConfigs.filter((config) => !config.builtIn);
-
     return (
       <section className="settings-page">
         <div className="settings-summary">
           <div>
-            <span>已授权</span>
-            <strong>{authorizedCount}</strong>
+            <span>内置预设</span>
+            <strong>{PLATFORM_ADAPTERS.length}</strong>
           </div>
           <div>
-            <span>已配置</span>
-            <strong>{configuredCount}</strong>
+            <span>自定义预设</span>
+            <strong>{customPresetConfigs.length}</strong>
           </div>
           <div>
-            <span>未配置</span>
-            <strong>{missingCount}</strong>
+            <span>当前启用</span>
+            <strong>{activePresetCount}</strong>
           </div>
         </div>
 
+        <section className="preset-location-card">
+          <FileText size={18} />
+          <div>
+            <strong>预设文件</strong>
+            <span>
+              平台预设会直接写入项目目录 <code>platform-presets/*.md</code>。
+            </span>
+          </div>
+        </section>
+
         <section className="custom-platform-panel">
           <div>
-            <strong>新增平台配置</strong>
-            <span>保存账号参数和授权凭证, 后续可继续接入适配器和发布器</span>
+            <strong>新增平台预设</strong>
+            <span>输入平台名称后, 直接生成 Markdown 风格预设</span>
           </div>
           <input
+            placeholder="平台名称"
             value={newCustomPlatform.displayName}
-            placeholder="平台名称, 如抖音"
             onChange={(event) =>
               setNewCustomPlatform((current) => ({
                 ...current,
@@ -653,336 +767,94 @@ export function App() {
               }))
             }
           />
-          <input
-            value={newCustomPlatform.platformId}
-            placeholder="平台标识, 如 douyin"
-            onChange={(event) =>
-              setNewCustomPlatform((current) => ({
-                ...current,
-                platformId: event.target.value,
-              }))
-            }
-          />
-          <button type="button" onClick={addCustomPlatform}>
-            <Plus size={15} />
-            添加平台
+          <button type="button" disabled={isCreatingPreset} onClick={handleCreateCustomPreset}>
+            {isCreatingPreset ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+            生成预设
           </button>
         </section>
 
-        <div className="settings-grid">
-          {PLATFORM_ADAPTERS.map((adapter) => {
-            const schema = PLATFORM_ACCOUNT_SCHEMAS[adapter.id];
-            const config =
-              accountConfigs.find((item) => item.platformId === adapter.id) ??
-              createFallbackAccountConfig(adapter.id);
-            const form = accountForms[adapter.id] ?? {};
-            const customFields = customAccountFields[adapter.id] ?? [];
-
-            return (
-              <section className="account-card" key={adapter.id}>
-                <div className="account-heading">
+        <section className="preset-section">
+          <div className="preset-section-heading">
+            <h2>内置平台预设</h2>
+            <span>随应用默认提供</span>
+          </div>
+          <div className="preset-grid">
+            {PLATFORM_ADAPTERS.map((adapter) => (
+              <article className="preset-card" key={adapter.id}>
+                <div className="preset-heading">
                   <div>
-                    <div className="account-title-row">
-                      <h2>{adapter.displayName}</h2>
-                      <div className="account-doc-links">
-                        {PLATFORM_CONFIG_LINKS[adapter.id].map((link) => (
-                          <a
-                            href={link.url}
-                            key={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <ExternalLink size={13} />
-                            {link.label}
-                          </a>
-                        ))}
+                    <div className="preset-title-row">
+                      <h3>{adapter.displayName}</h3>
+                      <span className="preset-badge">内置</span>
+                    </div>
+                  </div>
+                  <span className="preset-state enabled">已启用</span>
+                </div>
+                <p className="preset-tone">{adapter.tone}</p>
+                <div className="preset-meta">
+                  <span>文件: platform-presets/{adapter.id}.md</span>
+                  <span>格式: {getExportFormatLabel(adapter.exportFormat)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="preset-section">
+          <div className="preset-section-heading">
+            <h2>自定义平台预设</h2>
+            <span>新增后会参与下一次平台版本生成</span>
+          </div>
+          {customPresetConfigs.length > 0 ? (
+            <div className="preset-grid">
+              {customPresetConfigs.map((config) => (
+                <article className="preset-card" key={config.platformId}>
+                  <div className="preset-heading">
+                    <div>
+                      <div className="preset-title-row">
+                        <h3>{config.displayName}</h3>
+                        <span className="preset-badge">自定义</span>
                       </div>
                     </div>
-                    <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
+                    <span className={`preset-state ${config.enabled ? 'enabled' : 'disabled'}`}>
+                      {config.enabled ? '已启用' : '已停用'}
+                    </span>
                   </div>
-                  <label className="account-toggle">
-                    <input
-                      checked={form.enabled ? form.enabled === 'true' : config.enabled}
-                      type="checkbox"
-                      onChange={(event) =>
-                        updateAccountField(adapter.id, 'enabled', String(event.target.checked))
-                      }
-                    />
-                    <span aria-hidden="true" />
-                    <strong>启用</strong>
-                  </label>
-                </div>
-
-                {Object.keys(config.maskedFields).length > 0 ? (
-                  <div className="account-saved-fields">
-                    {Object.entries(config.maskedFields).map(([key, value]) => (
-                      <span key={key}>
-                        {getAccountFieldLabel(adapter.id, key)}: {value}
-                      </span>
-                    ))}
+                  <div className="preset-meta">
+                    <span>文件: platform-presets/{createCustomPlatformId(config.displayName)}.md</span>
+                    <span>{config.configured ? '预设已生成' : '待生成'}</span>
                   </div>
-                ) : null}
-
-                <div className="account-fields">
-                  {schema.fields.map((field) => (
-                    <label className="field" key={field.key}>
-                      <span>{field.label}</span>
-                      {field.kind === 'select' ? (
-                        <select
-                          value={form[field.key] ?? ''}
-                          onChange={(event) =>
-                            updateAccountField(adapter.id, field.key, event.target.value)
-                          }
-                        >
-                          <option value="">保持当前</option>
-                          {field.options?.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                  <div className="preset-actions">
+                    <button type="button" onClick={() => void handleToggleCustomPreset(config)}>
+                      {config.enabled ? '停用' : '启用'}
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      disabled={deletingPreset === config.platformId}
+                      onClick={() => void handleDeleteCustomPreset(config.platformId)}
+                    >
+                      {deletingPreset === config.platformId ? (
+                        <Loader2 className="spin" size={15} />
                       ) : (
-                        <input
-                          value={form[field.key] ?? ''}
-                          type={field.kind === 'password' ? 'password' : 'text'}
-                          placeholder={config.maskedFields[field.key] || field.label}
-                          onChange={(event) =>
-                            updateAccountField(adapter.id, field.key, event.target.value)
-                          }
-                        />
+                        <Trash2 size={15} />
                       )}
-                    </label>
-                  ))}
-                </div>
-
-                <div className="custom-config-section">
-                  <div className="custom-config-heading">
-                    <span>自定义配置</span>
-                    <button type="button" onClick={() => addCustomAccountField(adapter.id)}>
-                      <Plus size={14} />
-                      添加配置
+                      删除
                     </button>
                   </div>
-                  {customFields.length > 0 ? (
-                    <div className="custom-config-list">
-                      {customFields.map((field) => (
-                        <div className="custom-config-row" key={field.id}>
-                          <input
-                            value={field.key}
-                            placeholder="配置名, 如 workspaceId"
-                            onChange={(event) =>
-                              updateCustomAccountField(adapter.id, field.id, {
-                                key: event.target.value,
-                              })
-                            }
-                          />
-                          <input
-                            value={field.value}
-                            placeholder="配置值"
-                            onChange={(event) =>
-                              updateCustomAccountField(adapter.id, field.id, {
-                                value: event.target.value,
-                              })
-                            }
-                          />
-                          <button
-                            type="button"
-                            aria-label="删除自定义配置"
-                            onClick={() => removeCustomAccountField(adapter.id, field.id)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="custom-config-empty">可添加平台要求的额外参数</p>
-                  )}
-                </div>
-
-                <div className="account-actions">
-                  <button
-                    type="button"
-                    disabled={isSavingAccount === adapter.id}
-                    onClick={() => void handleSaveAccount(adapter.id, adapter.displayName)}
-                  >
-                    {isSavingAccount === adapter.id ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    保存配置
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isVerifyingAccount === adapter.id || !config.configured}
-                    onClick={() => void handleVerifyAccount(adapter.id)}
-                  >
-                    {isVerifyingAccount === adapter.id ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    授权
-                  </button>
-                  <button
-                    className="danger-button"
-                    type="button"
-                    disabled={!config.configured}
-                    onClick={() => void handleDeleteAccount(adapter.id)}
-                  >
-                    <Trash2 size={16} />
-                    删除配置
-                  </button>
-                </div>
-              </section>
-            );
-          })}
-          {[
-            ...customConfigs,
-            ...customPlatformDrafts.map((draft) =>
-              createCustomFallbackAccountConfig(draft.platformId, draft.displayName),
-            ),
-          ].map((config) => {
-            const platformId = config.platformId;
-            const displayName = config.displayName;
-            const form = accountForms[platformId] ?? {};
-            const customFields = customAccountFields[platformId] ?? [];
-
-            return (
-              <section className="account-card custom-platform-card" key={platformId}>
-                <div className="account-heading">
-                  <div>
-                    <div className="account-title-row">
-                      <h2>{displayName}</h2>
-                      <span className="custom-platform-badge">自定义平台</span>
-                    </div>
-                    <span className={`account-state ${config.status}`}>{config.statusMessage}</span>
-                  </div>
-                  <label className="account-toggle">
-                    <input
-                      checked={form.enabled ? form.enabled === 'true' : config.enabled}
-                      type="checkbox"
-                      onChange={(event) =>
-                        updateAccountField(platformId, 'enabled', String(event.target.checked))
-                      }
-                    />
-                    <span aria-hidden="true" />
-                    <strong>启用</strong>
-                  </label>
-                </div>
-
-                <div className="custom-platform-meta">
-                  <span>平台标识</span>
-                  <code>{platformId}</code>
-                </div>
-
-                {Object.keys(config.maskedFields).length > 0 ? (
-                  <div className="account-saved-fields">
-                    {Object.entries(config.maskedFields).map(([key, value]) => (
-                      <span key={key}>
-                        {key}: {value}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="custom-config-section">
-                  <div className="custom-config-heading">
-                    <span>配置参数</span>
-                    <button type="button" onClick={() => addCustomAccountField(platformId)}>
-                      <Plus size={14} />
-                      添加参数
-                    </button>
-                  </div>
-                  {customFields.length > 0 ? (
-                    <div className="custom-config-list">
-                      {customFields.map((field) => (
-                        <div className="custom-config-row" key={field.id}>
-                          <input
-                            value={field.key}
-                            placeholder="参数名, 如 accessToken"
-                            onChange={(event) =>
-                              updateCustomAccountField(platformId, field.id, {
-                                key: event.target.value,
-                              })
-                            }
-                          />
-                          <input
-                            value={field.value}
-                            placeholder="参数值"
-                            onChange={(event) =>
-                              updateCustomAccountField(platformId, field.id, {
-                                value: event.target.value,
-                              })
-                            }
-                          />
-                          <button
-                            type="button"
-                            aria-label="删除参数"
-                            onClick={() => removeCustomAccountField(platformId, field.id)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="custom-config-empty">先添加这个平台需要保存的参数</p>
-                  )}
-                </div>
-
-                <div className="account-actions">
-                  <button
-                    type="button"
-                    disabled={isSavingAccount === platformId}
-                    onClick={() => void handleSaveAccount(platformId, displayName)}
-                  >
-                    {isSavingAccount === platformId ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    保存配置
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isVerifyingAccount === platformId || !config.configured}
-                    onClick={() => void handleVerifyAccount(platformId)}
-                  >
-                    {isVerifyingAccount === platformId ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    授权
-                  </button>
-                  <button
-                    className="danger-button"
-                    type="button"
-                    onClick={() =>
-                      config.configured
-                        ? void handleDeleteAccount(platformId)
-                        : removeCustomPlatformDraft(platformId)
-                    }
-                  >
-                    <Trash2 size={16} />
-                    删除平台
-                  </button>
-                </div>
-              </section>
-            );
-          })}
-        </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="preset-empty">还没有自定义平台预设, 输入平台名称即可生成。</div>
+          )}
+        </section>
       </section>
     );
   }
 
   return (
-    <div
-      className={`app-shell ${currentView === 'settings' ? 'settings-mode' : ''}`}
-      style={shellStyle}
-    >
+    <div className={`app-shell view-${currentView}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -1026,403 +898,50 @@ export function App() {
         <button
           className={`sidebar-settings ${currentView === 'settings' ? 'active' : ''}`}
           type="button"
-          onClick={() => setCurrentView(currentView === 'settings' ? 'editor' : 'settings')}
+          onClick={toggleSettingsView}
         >
           <Settings size={16} />
           设置
         </button>
       </aside>
 
-      <main className={currentView === 'settings' ? 'workspace settings-workspace' : 'workspace'}>
+      <main className="workspace">
         <header className="topbar">
-          <div>
-            <h1>{currentView === 'settings' ? '设置' : '多平台内容适配'}</h1>
-            <p>
-              {currentView === 'settings'
-                ? '集中管理账号授权、字段配置与发布开关'
-                : '在左侧输入原始内容后，生成各平台版本并直接进入发布与复核流程'}
-            </p>
-          </div>
-          {currentView === 'editor' ? (
+          <h1>{currentView === 'settings' ? '平台预设' : '多平台内容适配'}</h1>
+          {currentView === 'results' ? (
             <div className="topbar-actions">
-              <span className="topbar-chip">
-                {currentSession ? '已保存会话' : '未保存会话'}
-              </span>
-              <span className="topbar-chip">
-                已生成 {generatedDraftCount}/{PLATFORM_ADAPTERS.length} 平台
-              </span>
+              <span className="topbar-chip">平台 {generatedDraftCount}</span>
+              <span className="topbar-chip">{getContentReviewStatusText(contentReview?.status)}</span>
             </div>
           ) : null}
         </header>
 
-        {currentView === 'settings' ? (
-          renderSettingsView()
-        ) : (
-        <section className="editor-pane">
-          <input
-            className="title-input"
-            placeholder="标题"
-            value={title}
-            onChange={(event) => {
-              setTitle(event.target.value);
-              setCurrentSession(null);
-            }}
-          />
-          <div className="editor-meta">
-            <span>平台版本 {generatedDraftCount}/{PLATFORM_ADAPTERS.length}</span>
-            <span>{currentSession ? '已保存' : '本地草稿'}</span>
-          </div>
-          <textarea
-            className="body-input"
-            placeholder="输入或粘贴你的原始内容"
-            value={body}
-            onChange={(event) => {
-              setBody(event.target.value);
-              setCurrentSession(null);
-            }}
-          />
-          <div className="editor-actions">
-            <span>{body.length} 字符</span>
-            <button
-              className="primary-button"
-              type="button"
-              disabled={isGenerating || body.trim().length === 0}
-              onClick={() => void handleGenerate()}
-            >
-              {isGenerating ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-              生成平台版本
-            </button>
-          </div>
-        </section>
-        )}
+        {currentView === 'settings'
+          ? renderSettingsView()
+          : currentView === 'results'
+            ? renderResultsView()
+            : renderEditorView()}
       </main>
-
-      {currentView === 'editor' ? (
-      <button
-        className="pane-resizer"
-        type="button"
-        aria-label="调整右侧预览宽度"
-        aria-orientation="vertical"
-        onPointerDown={handlePreviewResizeStart}
-      />
-      ) : null}
-
-      {currentView === 'editor' ? (
-      <aside className="preview-pane">
-        <div className="platform-tabs">
-          {PLATFORM_ADAPTERS.map((adapter) => (
-            <button
-              key={adapter.id}
-              className={selectedPlatform === adapter.id ? 'active' : ''}
-              type="button"
-              onClick={() => setSelectedPlatform(adapter.id)}
-            >
-              {adapter.displayName}
-            </button>
-          ))}
-        </div>
-
-        {editableDraft ? (
-          <section className="draft-view">
-            <div className="readiness-panel">
-              {readinessSteps.map((step) => (
-                <div className={`readiness-step ${step.state}`} key={step.id}>
-                  <span>{step.label}</span>
-                  <strong>{step.text}</strong>
-                </div>
-              ))}
-            </div>
-
-            <div className="draft-heading">
-              <div>
-                <span>{getPlatformName(editableDraft.platformId)}</span>
-                <h2 className="draft-title-text">{editableDraft.title}</h2>
-              </div>
-              <div className={`status ${contentReview?.status ?? 'not-reviewed'}`}>
-                {contentReview?.status === 'passed' ? <Check size={14} /> : <X size={14} />}
-                {getContentReviewStatusText(contentReview?.status)}
-              </div>
-            </div>
-
-            <div className="draft-summary-readonly">
-              <span>平台摘要</span>
-              <p>{editableDraft.summary || '暂无摘要'}</p>
-            </div>
-
-            {editableDraft.warnings && editableDraft.warnings.length > 0 ? (
-              <div className="warnings">
-                {editableDraft.warnings.map((warning) => (
-                  <span key={warning}>{warning}</span>
-                ))}
-              </div>
-            ) : null}
-
-            <section className={`content-review-card ${contentReview?.status ?? 'not-reviewed'}`}>
-              <div className="content-review-heading">
-                <div>
-                  <span>内容审查</span>
-                  <strong>{getContentReviewStatusText(contentReview?.status)}</strong>
-                </div>
-                <div className="content-review-actions">
-                  <button
-                    type="button"
-                    disabled={isReviewingContent || isRewritingContent || !currentSession}
-                    onClick={() => void handleRunContentReview()}
-                  >
-                    {isReviewingContent ? (
-                      <Loader2 className="spin" size={15} />
-                    ) : contentReview?.status === 'passed' ? (
-                      <ShieldCheck size={15} />
-                    ) : (
-                      <ShieldAlert size={15} />
-                    )}
-                    AI 审查
-                  </button>
-                  <button
-                    className="rewrite-risk-button"
-                    type="button"
-                    disabled={
-                      isRewritingContent ||
-                      isReviewingContent ||
-                      !currentSession ||
-                      !contentReviewHasIssues
-                    }
-                    onClick={() => void handleRewriteContentRisks()}
-                  >
-                    {isRewritingContent ? (
-                      <Loader2 className="spin" size={15} />
-                    ) : (
-                      <Sparkles size={15} />
-                    )}
-                    一键优化
-                  </button>
-                </div>
-              </div>
-              <div className="content-review-metrics">
-                <span className="legal">法律 {legalIssueCount}</span>
-                <span className="values">价值观 {valuesIssueCount}</span>
-              </div>
-              {contentReviewHasIssues ? (
-                <p className="review-hint">优化后需要重新进行 AI 审查</p>
-              ) : null}
-              {contentReview ? (
-                selectedReviewIssues.length > 0 ? (
-                  <div className="content-review-issues">
-                    {selectedReviewIssues.slice(0, 4).map((issue) => (
-                      <article className={`content-review-issue ${issue.kind}`} key={issue.id}>
-                        <div>
-                          <span>{getReviewIssueKindLabel(issue.kind)}</span>
-                          <strong>{issue.snippet}</strong>
-                        </div>
-                        <p>{issue.reason}</p>
-                        <small>{issue.suggestion}</small>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="review-empty">当前平台未发现明显风险</p>
-                )
-              ) : (
-                <p className="review-empty">发布前先完成内容法律和价值观审查</p>
-              )}
-            </section>
-
-            <div className="draft-preview-heading">
-              <Eye size={15} />
-              <span>平台正文预览</span>
-            </div>
-              <article
-                className="draft-rendered-preview"
-                dangerouslySetInnerHTML={{ __html: draftPreviewHtml }}
-              />
-
-            <div className="tags">
-              {editableDraft.hashtags.map((tag) => (
-                <span key={tag}>#{tag}</span>
-              ))}
-            </div>
-
-            <div className="preview-actions">
-              <button type="button" onClick={() => void handleCopy(editableDraft)}>
-                <Clipboard size={16} />
-                复制
-              </button>
-            </div>
-
-            <div className="publish-modes">
-              <div className="section-label">发布方式</div>
-              <div className="publish-mode-grid">
-                {(selectedAdapter?.publishModes ?? []).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={
-                      isPublishing ||
-                      (mode !== 'exportOnly' &&
-                        !contentReviewAllowsPublish)
-                    }
-                    onClick={() => void handleRunPublishTask(editableDraft.platformId, mode)}
-                  >
-                    {isPublishing && mode === 'simulated' ? (
-                      <Loader2 className="spin" size={16} />
-                    ) : (
-                      getPublishModeIcon(mode)
-                    )}
-                    {getPublishModeLabel(mode)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : (
-          <div className="empty-preview">输入内容后可查看平台预览</div>
-        )}
-
-        <section className="publish-dashboard">
-          <div className="publish-dashboard-heading">
-            <div>
-              <span>发布任务中心</span>
-              <strong>{publishTimeline.summary.progress}%</strong>
-            </div>
-            <Activity size={16} />
-          </div>
-          <div className="publish-progress" aria-hidden="true">
-            <span style={{ width: `${publishTimeline.summary.progress}%` }} />
-          </div>
-          <div className="publish-summary-grid">
-            <span>完成 {publishTimeline.summary.success}</span>
-            <span>失败 {publishTimeline.summary.failed}</span>
-            <span>等待 {publishTimeline.summary.ready + publishTimeline.summary.blocked}</span>
-          </div>
-          <div className="publish-readiness-list">
-            {publishReadiness.items.map((item) => (
-              <div className={`publish-readiness-item ${item.state}`} key={item.id}>
-                <div>
-                  {getPublishReadinessIcon(item)}
-                  <strong>{item.label}</strong>
-                  <span>{item.detail}</span>
-                </div>
-                <small>{item.action}</small>
-              </div>
-            ))}
-          </div>
-          <div className="publish-task-list">
-            {publishTimeline.items.map((item) => (
-              <div className={`publish-task ${item.status}`} key={item.platformId}>
-                <div className="publish-task-main">
-                  <div className="publish-task-title">
-                    {getPublishTimelineIcon(item)}
-                    <span>{item.platformName}</span>
-                    <strong>{item.label}</strong>
-                  </div>
-                  <p>{item.message}</p>
-                  <small>
-                    {getPublishModeLabel(item.mode)}
-                    {item.attempts > 0 ? ` · ${item.attempts} 次` : ''}
-                    {item.updatedAt ? ` · ${formatTime(item.updatedAt)}` : ''}
-                  </small>
-                </div>
-                {item.canRetry ? (
-                  <button
-                    type="button"
-                    disabled={isPublishing}
-                    onClick={() => void handleRunPublishTask(item.platformId, item.mode)}
-                  >
-                    <RotateCcw size={14} />
-                    重试
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <button
-          className="publish-all"
-          type="button"
-          disabled={isPublishing || !currentSession || !canRunPublishAll}
-          onClick={() => void handlePublishAll()}
-        >
-          <Send size={16} />
-          一键发布已接入平台
-        </button>
-      </aside>
-      ) : null}
 
       {notice ? <div className="toast">{notice}</div> : null}
     </div>
   );
 }
 
-function getDefaultPreviewWidth(): number {
-  if (typeof window === 'undefined') {
-    return 430;
-  }
-  return clampPreviewWidth(Math.round(window.innerWidth * 0.25));
+function getPlatformName(
+  platformId: PlatformId,
+  adapters: Array<{ id: PlatformId; displayName: string }> = PLATFORM_ADAPTERS,
+): string {
+  return adapters.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
 }
 
-function clampPreviewWidth(value: number): number {
-  if (typeof window === 'undefined') {
-    return value;
-  }
-  const maxByViewport =
-    window.innerWidth - SIDEBAR_WIDTH - MIN_WORKSPACE_WIDTH - RESIZER_WIDTH;
-  return Math.max(PREVIEW_MIN_WIDTH, Math.min(value, PREVIEW_MAX_WIDTH, maxByViewport));
-}
-
-function getPlatformName(platformId: PlatformId): string {
-  return PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
-}
-
-function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountConfig {
-  return {
-    platformId,
-    displayName: getPlatformName(platformId),
-    builtIn: true,
-    enabled: false,
-    configured: false,
-    status: 'not-configured',
-    statusMessage: '未配置账号',
-    maskedFields: {},
-  };
-}
-
-function createCustomFallbackAccountConfig(
-  platformId: string,
-  displayName: string,
-): PlatformAccountConfig {
-  return {
-    platformId,
-    displayName,
-    builtIn: false,
-    enabled: true,
-    configured: false,
-    status: 'not-configured',
-    statusMessage: '未配置账号',
-    maskedFields: {},
-  };
-}
-
-function getAccountDisplayName(platformId: string, fallback?: string): string {
-  return fallback ?? PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
-}
-
-function getAccountFieldLabel(platformId: string, key: string): string {
-  if (!Object.hasOwn(PLATFORM_ACCOUNT_SCHEMAS, platformId)) {
-    return key;
-  }
-  return (
-    PLATFORM_ACCOUNT_SCHEMAS[platformId as PlatformId].fields.find((field) => field.key === key)
-      ?.label ?? key
-  );
-}
-
-function normalizeCustomPlatformId(value: string): string {
-  return value
+function createCustomPlatformId(displayName: string): string {
+  const filenameBase = displayName
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '');
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+    .replace(/[. ]+$/g, '');
+
+  return filenameBase;
 }
 
 function getContentReviewStatusText(status?: ContentReviewStatus): string {
@@ -1442,47 +961,45 @@ function getReviewIssueKindLabel(kind: ContentReviewIssue['kind']): string {
   return kind === 'legal' ? '法律风险' : '价值观风险';
 }
 
-function getPublishModeLabel(mode: PublishMode): string {
-  const labels: Record<PublishMode, string> = {
-    simulated: '模拟发布',
-    exportOnly: '导出内容',
-    officialApi: '官方接口',
-    browserAssist: '浏览器辅助',
+function getPlatformListStateText(
+  draft: PlatformDraft,
+  publishStatus?: SavedSession['publishEvents'][number]['status'],
+): string {
+  if (publishStatus === 'success') {
+    return '模拟发布成功';
+  }
+  if (publishStatus === 'failed') {
+    return '模拟发布失败';
+  }
+  if (publishStatus === 'pending') {
+    return '模拟发布中';
+  }
+  if (draft.status === 'needs-review') {
+    return '需检查';
+  }
+  return '已生成';
+}
+
+function getPublishEventText(event?: SavedSession['publishEvents'][number]): string {
+  if (!event) {
+    return '未发布';
+  }
+  if (event.status === 'success') {
+    return `成功, ${formatTime(event.createdAt)}`;
+  }
+  if (event.status === 'failed') {
+    return `失败, ${event.message}`;
+  }
+  return '进行中';
+}
+
+function getExportFormatLabel(format: 'html' | 'markdown' | 'plain'): string {
+  const labels = {
+    html: 'HTML',
+    markdown: 'Markdown',
+    plain: '纯文本',
   };
-  return labels[mode];
-}
-
-function getPublishModeIcon(mode: PublishMode) {
-  if (mode === 'exportOnly') {
-    return <Download size={16} />;
-  }
-  if (mode === 'simulated') {
-    return <Play size={16} />;
-  }
-  return <Send size={16} />;
-}
-
-function getPublishTimelineIcon(item: PublishTimelineItem) {
-  if (item.status === 'success') {
-    return <Check size={14} />;
-  }
-  if (item.status === 'failed' || item.status === 'blocked') {
-    return <X size={14} />;
-  }
-  if (item.status === 'pending') {
-    return <Loader2 className="spin" size={14} />;
-  }
-  return <Send size={14} />;
-}
-
-function getPublishReadinessIcon(item: PublishReadinessItem) {
-  if (item.state === 'done') {
-    return <Check size={14} />;
-  }
-  if (item.state === 'warning') {
-    return <ShieldAlert size={14} />;
-  }
-  return <X size={14} />;
+  return labels[format];
 }
 
 function sanitizeDraftPreviewHtml(value: string): string {

@@ -9,33 +9,27 @@ describe('platform account schemas', () => {
   it('defines account fields for every supported platform', () => {
     expect(Object.keys(PLATFORM_ACCOUNT_SCHEMAS)).toEqual([
       'wechat',
-      'zhihu',
       'bilibili',
-      'xiaohongshu',
+      'douyin',
     ]);
   });
 
-  it('validates required fields with Chinese messages', () => {
+  it('does not require account secrets in simulation-only mode', () => {
     const result = validateAccountFields('wechat', {
-      appId: 'wx123',
-      appSecret: '',
-      thumbMediaId: '',
+      styleNote: '',
     });
 
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain('微信公众号缺少 AppSecret');
-    expect(result.errors).toContain('微信公众号缺少封面素材 Media ID');
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 
-  it('masks secret account fields before returning them to renderer', () => {
+  it('masks secret-like platform config fields before returning them to renderer', () => {
     const masked = maskAccountFields('wechat', {
-      appId: 'wx1234567890',
-      appSecret: 'secret-1234567890',
-      thumbMediaId: 'media-123',
+      styleNote: '保持专业',
+      accessToken: 'token-1234567890',
     });
 
-    expect(masked.appId).toBe('wx1*******90');
-    expect(masked.appSecret).toBe('sec*******90');
-    expect(masked.thumbMediaId).toBe('media-123');
+    expect(masked.styleNote).toBe('保持专业');
+    expect(masked.accessToken).toBeUndefined();
   });
 });

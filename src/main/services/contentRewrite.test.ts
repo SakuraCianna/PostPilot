@@ -16,7 +16,7 @@ const riskyDrafts: PlatformDraft[] = [
     status: 'ready',
   },
   {
-    platformId: 'zhihu',
+    platformId: 'bilibili',
     title: '收益承诺',
     summary: '普通摘要',
     body: '这个方案保证收益, 面向低端用户。',
@@ -125,7 +125,59 @@ describe('content rewrite service', () => {
       title: '收益提示',
       status: 'ready',
     });
-    expect(result.drafts[1]?.platformId).toBe('zhihu');
+    expect(result.drafts[1]?.platformId).toBe('bilibili');
     expect(result.drafts[1]?.status).toBe('ready');
+  });
+
+  it('keeps custom platform drafts when AI only returns built-in platform drafts', async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  drafts: [
+                    {
+                      platformId: 'wechat',
+                      title: '收益提示',
+                      summary: '收益需要结合条件评估',
+                      body: '<p>这个方案可能带来效率提升。</p>',
+                      hashtags: [],
+                      status: 'ready',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+      );
+
+    const result = await rewriteContentRisks({
+      content: {
+        title: '收益承诺',
+        body: '这个方案保证收益。',
+      },
+      drafts: [
+        riskyDrafts[0]!,
+        {
+          platformId: 'threads',
+          title: 'Threads 标题',
+          summary: '保证收益',
+          body: '这个方案保证收益。',
+          hashtags: [],
+          status: 'ready',
+        },
+      ],
+      review,
+      apiKey: 'test-key',
+      fetchImpl,
+    });
+
+    expect(result.drafts.map((draft) => draft.platformId)).toEqual(['wechat', 'threads']);
+    expect(result.drafts.find((draft) => draft.platformId === 'threads')?.body).toContain(
+      '在符合条件时可能带来收益',
+    );
   });
 });

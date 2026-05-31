@@ -14,7 +14,7 @@ import {
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 
 const DraftSchema = z.object({
-  platformId: z.enum(['wechat', 'zhihu', 'bilibili', 'xiaohongshu']),
+  platformId: z.string(),
   title: z.string(),
   summary: z.string(),
   body: z.string(),
@@ -149,7 +149,7 @@ async function callDeepSeekRewrite(
             requiredShape: {
               drafts: [
                 {
-                  platformId: 'wechat | zhihu | bilibili | xiaohongshu',
+                  platformId: '内部平台 ID',
                   title: 'string',
                   summary: 'string',
                   body: 'string',
@@ -170,6 +170,7 @@ async function callDeepSeekRewrite(
               tone: adapter.tone,
               limits: adapter.limits,
               exportFormat: adapter.exportFormat,
+              styleGuide: adapter.styleGuide,
             })),
           }),
         },
@@ -254,12 +255,8 @@ function mergeDrafts(aiDrafts: PlatformDraft[], localDrafts: PlatformDraft[]): P
     aiDrafts.map((draft) => [draft.platformId, draft]),
   );
 
-  return PLATFORM_ADAPTERS.map(
-    (adapter) =>
-      aiByPlatform.get(adapter.id) ??
-      localDrafts.find((draft) => draft.platformId === adapter.id),
-  )
-    .filter((draft): draft is PlatformDraft => Boolean(draft))
+  return localDrafts
+    .map((draft) => aiByPlatform.get(draft.platformId) ?? draft)
     .map((draft) => normalizeDraft({ ...draft, status: 'ready' }));
 }
 

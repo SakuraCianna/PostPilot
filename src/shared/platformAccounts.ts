@@ -1,61 +1,30 @@
 import type {
+  BuiltInPlatformId,
   PlatformAccountConfig,
   PlatformAccountSchema,
   PlatformAccountStatus,
-  PlatformId,
 } from './types';
 
 export const CUSTOM_PLATFORM_NAME_FIELD = '__platformName';
 
-export const PLATFORM_ACCOUNT_SCHEMAS: Record<PlatformId, PlatformAccountSchema> = {
+export const PLATFORM_ACCOUNT_SCHEMAS: Record<BuiltInPlatformId, PlatformAccountSchema> = {
   wechat: {
     platformId: 'wechat',
     displayName: '微信公众号',
-    supportsOfficialApi: true,
-    fields: [
-      { key: 'appId', label: 'AppID', required: true },
-      { key: 'appSecret', label: 'AppSecret', required: true, secret: true, kind: 'password' },
-      { key: 'thumbMediaId', label: '封面素材 Media ID', required: true },
-      { key: 'author', label: '作者', required: false },
-      { key: 'sourceUrl', label: '原文链接', required: false },
-      {
-        key: 'publishTarget',
-        label: '发布目标',
-        required: false,
-        kind: 'select',
-        options: [
-          { label: '保存草稿', value: 'draft' },
-          { label: '提交发布', value: 'publish' },
-        ],
-      },
-    ],
-  },
-  zhihu: {
-    platformId: 'zhihu',
-    displayName: '知乎',
     supportsOfficialApi: false,
-    fields: [{ key: 'accessToken', label: 'Access Token', required: false, secret: true }],
+    fields: [{ key: 'styleNote', label: '平台风格补充', required: false }],
   },
   bilibili: {
     platformId: 'bilibili',
-    displayName: 'B 站',
+    displayName: '哔哩哔哩',
     supportsOfficialApi: false,
-    fields: [
-      { key: 'clientId', label: 'Client ID', required: false },
-      { key: 'clientSecret', label: 'Client Secret', required: false, secret: true },
-      { key: 'accessToken', label: 'Access Token', required: false, secret: true },
-      { key: 'refreshToken', label: 'Refresh Token', required: false, secret: true },
-    ],
+    fields: [{ key: 'styleNote', label: '平台风格补充', required: false }],
   },
-  xiaohongshu: {
-    platformId: 'xiaohongshu',
-    displayName: '小红书',
+  douyin: {
+    platformId: 'douyin',
+    displayName: '抖音',
     supportsOfficialApi: false,
-    fields: [
-      { key: 'appKey', label: 'App Key', required: false },
-      { key: 'appSecret', label: 'App Secret', required: false, secret: true },
-      { key: 'accessToken', label: 'Access Token', required: false, secret: true },
-    ],
+    fields: [{ key: 'styleNote', label: '平台风格补充', required: false }],
   },
 };
 
@@ -109,7 +78,7 @@ export function maskAccountFields(
   );
 }
 
-export function createEmptyAccountConfig(platformId: PlatformId): PlatformAccountConfig {
+export function createEmptyAccountConfig(platformId: BuiltInPlatformId): PlatformAccountConfig {
   return {
     platformId,
     displayName: PLATFORM_ACCOUNT_SCHEMAS[platformId].displayName,
@@ -117,21 +86,21 @@ export function createEmptyAccountConfig(platformId: PlatformId): PlatformAccoun
     enabled: false,
     configured: false,
     status: 'not-configured',
-    statusMessage: '未配置账号',
+    statusMessage: '未配置平台',
     maskedFields: {},
   };
 }
 
-export function isBuiltInPlatformId(platformId: string): platformId is PlatformId {
+export function isBuiltInPlatformId(platformId: string): platformId is BuiltInPlatformId {
   return Object.hasOwn(PLATFORM_ACCOUNT_SCHEMAS, platformId);
 }
 
 export function accountStatusMessage(status: PlatformAccountStatus): string {
   const messages: Record<PlatformAccountStatus, string> = {
-    'not-configured': '未配置账号',
-    configured: '账号配置已保存',
-    authorized: '授权校验通过',
-    'auth-failed': '授权校验失败',
+    'not-configured': '未配置平台',
+    configured: '平台配置已保存',
+    authorized: '平台预设已确认',
+    'auth-failed': '平台预设生成失败',
   };
   return messages[status];
 }

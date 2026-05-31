@@ -7,14 +7,14 @@ import type {
   PlatformAccountConfig,
   PublishMode,
   PublishTaskResult,
+  PlatformPresetResearchResult,
+  ResearchPlatformPresetInput,
   RunContentReviewInput,
   RunContentRewriteInput,
   SaveModelSettingsInput,
   SavePlatformAccountInput,
   SavedSession,
   SessionSummary,
-  VerifyPlatformAccountInput,
-  VerifyPlatformAccountResult,
 } from '../shared/types';
 
 const api = {
@@ -29,9 +29,9 @@ const api = {
     ipcRenderer.invoke('accounts:save', input),
   deleteAccountConfig: (platformId: string): Promise<PlatformAccountConfig[]> =>
     ipcRenderer.invoke('accounts:delete', platformId),
-  verifyAccountConfig: (
-    input: VerifyPlatformAccountInput,
-  ): Promise<VerifyPlatformAccountResult> => ipcRenderer.invoke('accounts:verify', input),
+  researchPlatformPreset: (
+    input: ResearchPlatformPresetInput,
+  ): Promise<PlatformPresetResearchResult> => ipcRenderer.invoke('platformPresets:research', input),
   runContentReview: (input: RunContentReviewInput): Promise<SavedSession> =>
     ipcRenderer.invoke('review:run', input),
   rewriteContentRisks: (input: RunContentRewriteInput): Promise<SavedSession> =>

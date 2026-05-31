@@ -15,7 +15,7 @@ import {
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 
 const DraftSchema = z.object({
-  platformId: z.enum(['wechat', 'zhihu', 'bilibili', 'xiaohongshu']),
+  platformId: z.string(),
   title: z.string(),
   summary: z.string(),
   body: z.string(),
@@ -96,7 +96,7 @@ async function callDeepSeek(options: GenerateAdaptationsOptions, apiKey: string)
         {
           role: 'system',
           content:
-            '你是 PostPilot, 一个中文创作者发布助手。只返回 JSON。请把原始内容适配成微信公众号, 知乎, B 站, 小红书四个平台版本。',
+            '你是 PostPilot, 一个中文创作者发布助手。只返回 JSON。请把原始内容适配成微信公众号, 哔哩哔哩, 抖音三个内置平台版本。',
         },
         {
           role: 'user',
@@ -105,7 +105,7 @@ async function callDeepSeek(options: GenerateAdaptationsOptions, apiKey: string)
             requiredShape: {
               drafts: [
                 {
-                  platformId: 'wechat | zhihu | bilibili | xiaohongshu',
+                  platformId: '内部平台 ID',
                   title: 'string',
                   summary: 'string',
                   body: 'string',
@@ -120,6 +120,7 @@ async function callDeepSeek(options: GenerateAdaptationsOptions, apiKey: string)
               tone: adapter.tone,
               limits: adapter.limits,
               exportFormat: adapter.exportFormat,
+              styleGuide: adapter.styleGuide,
             })),
           }),
         },

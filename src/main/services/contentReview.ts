@@ -15,9 +15,7 @@ const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 
 const AiIssueSchema = z.object({
   kind: z.enum(['legal', 'values']),
-  platformId: z
-    .enum(['wechat', 'zhihu', 'bilibili', 'xiaohongshu'])
-    .optional(),
+  platformId: z.string().optional(),
   snippet: z.string().min(1),
   reason: z.string().min(1),
   suggestion: z.string().min(1),
@@ -148,7 +146,7 @@ async function callDeepSeekReview(
               issues: [
                 {
                   kind: 'legal | values',
-                  platformId: 'wechat | zhihu | bilibili | xiaohongshu | optional',
+                  platformId: '内部平台 ID 或 optional',
                   snippet: 'string',
                   reason: 'string',
                   suggestion: 'string',
@@ -165,6 +163,7 @@ async function callDeepSeekReview(
               displayName: adapter.displayName,
               tone: adapter.tone,
               limits: adapter.limits,
+              styleGuide: adapter.styleGuide,
             })),
           }),
         },
