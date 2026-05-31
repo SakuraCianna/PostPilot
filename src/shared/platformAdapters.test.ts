@@ -73,6 +73,30 @@ describe('platform adapters', () => {
     );
   });
 
+  it('can match custom platform presets by display name for old local records', () => {
+    const customAdapters = createCustomPlatformAdapters(
+      [
+        {
+          platformId: 'legacy-generated-id',
+          displayName: '小红书',
+          builtIn: false,
+          enabled: true,
+          configured: true,
+          status: 'configured',
+          statusMessage: '平台预设已保存',
+          maskedFields: {},
+        },
+      ],
+      {
+        小红书: '- 风格像可收藏笔记\n- 结尾增加评论引导',
+      },
+    );
+
+    expect(customAdapters[0]?.displayName).toBe('小红书');
+    expect(customAdapters[0]?.styleGuide).toContain('可收藏笔记');
+    expect(customAdapters[0]?.tone).toContain('风格像可收藏笔记');
+  });
+
   it('reports validation warnings for platform-specific limits in Chinese', () => {
     const warnings = validatePlatformDraft('douyin', {
       platformId: 'douyin',

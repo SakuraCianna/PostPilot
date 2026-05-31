@@ -35,15 +35,17 @@ import {
   type SessionSummary,
 } from '../shared/types';
 
-const DEMO_TITLE = '一篇内容如何高效分发到三个平台';
+const DEMO_TITLE = 'Transformer 架构讲解（样例）';
 
-const DEMO_BODY = `很多创作者真正头疼的不是写不出内容, 而是一篇内容写完之后, 还要分别改成公众号长文、哔哩哔哩视频简介和抖音短视频文案。
+const DEMO_BODY = `Transformer 是现代大语言模型的核心架构。它最重要的变化, 是不再像传统循环神经网络那样按顺序一个词一个词处理文本, 而是让模型在同一层里同时观察整段输入, 判断哪些词和当前词最相关。
 
-同一段观点放在不同平台里, 需要完全不同的表达方式。公众号读者更在意结构、论证和完整阅读体验; 哔哩哔哩用户希望快速看到视频看点、适合谁看、评论区可以聊什么; 抖音则要求信息更前置, 几秒内就让用户知道为什么要继续看。
+它的关键机制叫自注意力。简单理解, 当模型看到一句话里的某个词时, 会给句子中其他词分配不同权重。权重越高, 说明这个词对理解当前词越重要。比如在“苹果发布了新芯片, 它提升了推理速度”这句话里, 模型需要知道“它”更可能指向“新芯片”, 而不是“苹果”。
 
-我的做法是先保留一份完整的原始内容, 再让工具基于平台预设自动生成不同版本。每个平台的预设会记录标题偏好、正文节奏、互动方式和标签建议, 这样改写时就不是简单截断, 而是围绕平台语境重新组织内容。
+为了让模型从多个角度理解上下文, Transformer 会使用多头注意力。每个注意力头关注的信息不完全相同, 有的头可能关注主谓关系, 有的头可能关注指代关系, 还有的头会捕捉长距离依赖。多个结果合并后, 模型就能得到更丰富的语义表示。
 
-这个流程适合日常选题复用、课程笔记拆条、产品更新说明和经验文章分发。创作者只需要维护原文和平台预设, 就能更快得到可复制、可检查、可模拟发布的版本。`;
+除了注意力层, Transformer 还包含前馈网络、残差连接、层归一化和位置编码。位置编码负责告诉模型词语顺序, 残差连接让深层网络更容易训练, 层归一化则让训练过程更稳定。
+
+Transformer 的优势在于并行计算能力强, 也更擅长捕捉长距离关系。无论是机器翻译、文本摘要、代码生成, 还是今天常见的对话式 AI, 背后都能看到 Transformer 思想的影子。`;
 
 const NOTICE_TTL_MS = 3000;
 
@@ -377,6 +379,10 @@ export function App() {
 
     if (!displayName) {
       setNotice('请填写平台名称');
+      return;
+    }
+    if (!platformId) {
+      setNotice('平台名称不能只包含特殊字符');
       return;
     }
     if (
@@ -741,7 +747,7 @@ export function App() {
           <div>
             <strong>预设文件</strong>
             <span>
-              仓库演示文件在 <code>platform-presets/*.md</code>, 启动后会同步到本地用户数据目录。
+              平台预设会直接写入项目目录 <code>platform-presets/*.md</code>。
             </span>
           </div>
         </section>
@@ -815,7 +821,7 @@ export function App() {
                     </span>
                   </div>
                   <div className="preset-meta">
-                    <span>文件: platform-presets/{config.platformId}.md</span>
+                    <span>文件: platform-presets/{createCustomPlatformId(config.displayName)}.md</span>
                     <span>{config.configured ? '预设已生成' : '待生成'}</span>
                   </div>
                   <div className="preset-actions">
@@ -930,22 +936,12 @@ function getPlatformName(
 }
 
 function createCustomPlatformId(displayName: string): string {
-  const normalized = displayName
+  const filenameBase = displayName
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '');
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+    .replace(/[. ]+$/g, '');
 
-  if (normalized) {
-    return normalized;
-  }
-
-  const encoded = Array.from(displayName.trim())
-    .map((char) => char.codePointAt(0)?.toString(36))
-    .filter(Boolean)
-    .join('-');
-
-  return encoded ? `platform-${encoded}` : '';
+  return filenameBase;
 }
 
 function getContentReviewStatusText(status?: ContentReviewStatus): string {

@@ -43,7 +43,7 @@ const sessions = createSessionRepository(db);
 const settings = createSettingsRepository(db, secretCodec);
 const accounts = createAccountRepository(db, secretCodec);
 const platformPresets = createPlatformPresetResearchService({
-  presetDir: path.join(app.getPath('userData'), 'platform-presets'),
+  presetDir: path.resolve(process.cwd(), 'platform-presets'),
 });
 platformPresets.seedDefaultPresets();
 
@@ -96,6 +96,17 @@ ipcMain.handle('accounts:save', (_event, input: SavePlatformAccountInput) =>
 );
 
 ipcMain.handle('accounts:delete', (_event, platformId: string) => {
+  const target = accounts
+    .listAccountConfigs()
+    .find((config) => config.platformId === platformId);
+
+  if (target && !target.builtIn) {
+    platformPresets.deletePreset({
+      platformId: target.platformId,
+      displayName: target.displayName,
+    });
+  }
+
   accounts.deleteAccountConfig(platformId);
   return accounts.listAccountConfigs();
 });

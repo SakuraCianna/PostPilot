@@ -17,6 +17,7 @@ interface TavilySearchResponse {
 export interface PlatformPresetResearchService {
   seedDefaultPresets(): void;
   readPresetMarkdowns(): Record<string, string>;
+  deletePreset(input: { platformId: string; displayName?: string }): string[];
   researchPlatformPreset(input: {
     platformId: string;
     displayName: string;
@@ -29,7 +30,7 @@ export function createPlatformPresetResearchService(input: {
   presetDir: string;
 }): PlatformPresetResearchService {
   function getPresetPath(platformId: string): string {
-    return path.join(input.presetDir, `${normalizePlatformId(platformId)}.md`);
+    return path.join(input.presetDir, `${createPresetFilename(platformId)}.md`);
   }
 
   function writePreset(platformId: string, markdown: string): string {
@@ -49,8 +50,46 @@ export function createPlatformPresetResearchService(input: {
     }
   }
 
+  function deletePreset({
+    platformId,
+    displayName,
+  }: {
+    platformId: string;
+    displayName?: string;
+  }): string[] {
+    if (!fs.existsSync(input.presetDir)) {
+      return [];
+    }
+
+    const filenames = new Set(
+      [platformId, displayName]
+        .map((value) => createPresetFilename(value ?? ''))
+        .filter((value) => value.length > 0),
+    );
+    const deletedPaths: string[] = [];
+
+    for (const filename of filenames) {
+      const presetPath = path.join(input.presetDir, `${filename}.md`);
+      if (!fs.existsSync(presetPath)) {
+        continue;
+      }
+
+      try {
+        fs.rmSync(presetPath, { force: true });
+        deletedPaths.push(presetPath);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`删除平台预设文件失败: ${path.basename(presetPath)}, ${message}`);
+      }
+    }
+
+    return deletedPaths;
+  }
+
   return {
     seedDefaultPresets,
+
+    deletePreset,
 
     readPresetMarkdowns(): Record<string, string> {
       seedDefaultPresets();
@@ -235,11 +274,14 @@ function createLocalPresetMarkdown(displayName: string, updatedAt: string): stri
 }
 
 function normalizePlatformId(platformId: string): string {
+  return createPresetFilename(platformId);
+}
+
+function createPresetFilename(platformId: string): string {
   return platformId
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '');
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+    .replace(/[. ]+$/g, '');
 }
 
 function clipText(value: string, maxLength: number): string {

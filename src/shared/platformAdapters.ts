@@ -64,7 +64,7 @@ export function createCustomPlatformAdapters(
       createCustomPlatformAdapter(
         config.platformId,
         config.displayName,
-        styleGuides[config.platformId],
+        styleGuides[config.platformId] ?? styleGuides[config.displayName],
       ),
     );
 }

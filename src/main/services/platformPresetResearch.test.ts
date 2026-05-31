@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -27,6 +27,46 @@ describe('platform preset research service', () => {
     expect(result.status).toBe('local-fallback');
     expect(result.presetPath).toMatch(/bilibili\.md$/);
     expect(readFileSync(result.presetPath, 'utf8')).toContain('# 哔哩哔哩 平台风格预设');
+  });
+
+  it('uses the custom platform name as the markdown filename', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-presets-'));
+    tempDirs.push(dir);
+    const service = createPlatformPresetResearchService({ presetDir: dir });
+
+    const result = await service.researchPlatformPreset({
+      platformId: '小红书',
+      displayName: '小红书',
+      apiKey: '',
+    });
+
+    expect(result.platformId).toBe('小红书');
+    expect(result.presetPath).toBe(path.join(dir, '小红书.md'));
+    expect(readFileSync(result.presetPath, 'utf8')).toContain('# 小红书 平台风格预设');
+    expect(service.readPresetMarkdowns()['小红书']).toContain('小红书');
+  });
+
+  it('deletes custom preset files by display name and legacy id', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-presets-'));
+    tempDirs.push(dir);
+    const service = createPlatformPresetResearchService({ presetDir: dir });
+
+    const result = await service.researchPlatformPreset({
+      platformId: '小红书',
+      displayName: '小红书',
+      apiKey: '',
+    });
+
+    expect(existsSync(result.presetPath)).toBe(true);
+
+    const deleted = service.deletePreset({
+      platformId: 'legacy-generated-id',
+      displayName: '小红书',
+    });
+
+    expect(deleted).toEqual([path.join(dir, '小红书.md')]);
+    expect(existsSync(result.presetPath)).toBe(false);
+    expect(service.readPresetMarkdowns()['小红书']).toBeUndefined();
   });
 
   it('seeds built-in demo platform presets as markdown files', () => {
