@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPublishTask } from './publishers';
+import { createCustomPlatformAdapter } from '../../shared/platformAdapters';
 import type { PlatformDraft, SecretPlatformAccountConfig } from '../../shared/types';
 
 const draft: PlatformDraft = {
@@ -117,6 +118,40 @@ describe('publishers', () => {
     expect(task.artifact?.content).toContain('发布测试');
     expect(task.artifact?.content).toContain('正文内容');
     expect(task.artifact?.content).toContain('https://www.zhihu.com');
+  });
+
+  it('creates a browser assist package for custom platforms with configured target url', async () => {
+    const customDraft: PlatformDraft = {
+      ...draft,
+      platformId: 'douyin',
+      title: '抖音标题',
+      body: '抖音正文',
+      hashtags: ['创作者工具'],
+    };
+    const account: SecretPlatformAccountConfig = {
+      platformId: 'douyin',
+      enabled: true,
+      fields: {
+        publishUrl: 'https://creator.douyin.com/',
+      },
+    };
+
+    const task = await createPublishTask(
+      {
+        draft: customDraft,
+        mode: 'browserAssist',
+      },
+      {
+        adapters: [createCustomPlatformAdapter('douyin', '抖音')],
+        getAccountConfig: () => account,
+      },
+    );
+
+    expect(task.status).toBe('pending');
+    expect(task.event.message).toContain('抖音 浏览器辅助填充包');
+    expect(task.artifact?.filename).toMatch(/^douyin-browser-assist-.*\.html$/);
+    expect(task.artifact?.content).toContain('https://creator.douyin.com/');
+    expect(task.artifact?.content).toContain('抖音正文');
   });
 
   it('runs official connector with saved account config and receipt', async () => {

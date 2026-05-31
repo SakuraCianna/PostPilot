@@ -23,6 +23,7 @@ import DOMPurify from 'dompurify';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { AppIcon } from './components/AppIcon';
 import {
+  createCustomPlatformAdapters,
   createLocalDrafts,
   formatDraftForClipboard,
   PLATFORM_ADAPTERS,
@@ -35,6 +36,7 @@ import { createReadinessSteps } from './productStatus';
 import {
   type ContentReviewIssue,
   type ContentReviewStatus,
+  type BuiltInPlatformId,
   type PlatformAccountConfig,
   type PlatformDraft,
   type PlatformId,
@@ -57,7 +59,7 @@ const RESIZER_WIDTH = 8;
 const NOTICE_TTL_MS = 5000;
 
 const PLATFORM_CONFIG_LINKS: Record<
-  PlatformId,
+  BuiltInPlatformId,
   Array<{ label: string; url: string }>
 > = {
   wechat: [
@@ -124,6 +126,11 @@ export function App() {
   const [notice, setNotice] = useState('');
   const [previewWidth, setPreviewWidth] = useState(() => getDefaultPreviewWidth());
 
+  const activePlatformAdapters = useMemo(
+    () => [...PLATFORM_ADAPTERS, ...createCustomPlatformAdapters(accountConfigs)],
+    [accountConfigs],
+  );
+
   useEffect(() => {
     window.postPilot.getBootstrap().then((payload) => {
       setSessions(payload.sessions);
@@ -150,8 +157,9 @@ export function App() {
   }, [notice]);
 
   const previewDrafts = useMemo(() => {
-    return currentSession?.drafts ?? createLocalDrafts({ title, body });
-  }, [body, currentSession, title]);
+    const customAdapters = createCustomPlatformAdapters(accountConfigs);
+    return currentSession?.drafts ?? createLocalDrafts({ title, body }, customAdapters);
+  }, [accountConfigs, body, currentSession, title]);
 
   const selectedDraft = useMemo(() => {
     return (
@@ -161,8 +169,11 @@ export function App() {
   }, [previewDrafts, selectedPlatform]);
 
   const selectedAdapter = useMemo(
-    () => PLATFORM_ADAPTERS.find((adapter) => adapter.id === selectedPlatform),
-    [selectedPlatform],
+    () =>
+      activePlatformAdapters.find(
+        (adapter) => adapter.id === (selectedDraft?.platformId ?? selectedPlatform),
+      ),
+    [activePlatformAdapters, selectedDraft?.platformId, selectedPlatform],
   );
 
   const selectedAccountConfig = useMemo(
@@ -215,29 +226,35 @@ export function App() {
 
   const generatedDraftCount = useMemo(
     () =>
-      previewDrafts.filter((draft) => draft.status === 'ready').length,
-    [previewDrafts],
+      previewDrafts.filter(
+        (draft) =>
+          draft.status === 'ready' &&
+          activePlatformAdapters.some((adapter) => adapter.id === draft.platformId),
+      ).length,
+    [activePlatformAdapters, previewDrafts],
   );
 
-  const allPlatformDraftsGenerated = previewDrafts.length === PLATFORM_ADAPTERS.length;
+  const allPlatformDraftsGenerated = activePlatformAdapters.every((adapter) =>
+    previewDrafts.some((draft) => draft.platformId === adapter.id),
+  );
 
   const publishTimeline = useMemo(
     () =>
       createPublishTimeline({
         session: currentSession,
-        adapters: PLATFORM_ADAPTERS,
+        adapters: activePlatformAdapters,
       }),
-    [currentSession],
+    [activePlatformAdapters, currentSession],
   );
 
   const publishReadiness = useMemo(
     () =>
       createPublishReadiness({
         session: currentSession,
-        adapters: PLATFORM_ADAPTERS,
+        adapters: activePlatformAdapters,
         accounts: accountConfigs,
       }),
-    [accountConfigs, currentSession],
+    [accountConfigs, activePlatformAdapters, currentSession],
   );
 
   const legalIssueCount =
@@ -372,8 +389,9 @@ export function App() {
   }
 
   async function handleCopy(draft: PlatformDraft) {
-    await navigator.clipboard.writeText(formatDraftForClipboard(draft));
-    setNotice(`已复制 ${getPlatformName(draft.platformId)} 版本`);
+    const adapter = activePlatformAdapters.find((item) => item.id === draft.platformId);
+    await navigator.clipboard.writeText(formatDraftForClipboard(draft, adapter));
+    setNotice(`已复制 ${getPlatformName(draft.platformId, activePlatformAdapters)} 版本`);
   }
 
   function downloadArtifact(filename: string, content: string, mimeType: string) {
@@ -671,7 +689,8 @@ export function App() {
 
         <div className="settings-grid">
           {PLATFORM_ADAPTERS.map((adapter) => {
-            const schema = PLATFORM_ACCOUNT_SCHEMAS[adapter.id];
+            const platformId = adapter.id as BuiltInPlatformId;
+            const schema = PLATFORM_ACCOUNT_SCHEMAS[platformId];
             const config =
               accountConfigs.find((item) => item.platformId === adapter.id) ??
               createFallbackAccountConfig(adapter.id);
@@ -685,7 +704,7 @@ export function App() {
                     <div className="account-title-row">
                       <h2>{adapter.displayName}</h2>
                       <div className="account-doc-links">
-                        {PLATFORM_CONFIG_LINKS[adapter.id].map((link) => (
+                        {PLATFORM_CONFIG_LINKS[platformId].map((link) => (
                           <a
                             href={link.url}
                             key={link.url}
@@ -1049,7 +1068,7 @@ export function App() {
                 {currentSession ? '已保存会话' : '未保存会话'}
               </span>
               <span className="topbar-chip">
-                已生成 {generatedDraftCount}/{PLATFORM_ADAPTERS.length} 平台
+                已生成 {generatedDraftCount}/{activePlatformAdapters.length} 平台
               </span>
             </div>
           ) : null}
@@ -1069,7 +1088,7 @@ export function App() {
             }}
           />
           <div className="editor-meta">
-            <span>平台版本 {generatedDraftCount}/{PLATFORM_ADAPTERS.length}</span>
+            <span>平台版本 {generatedDraftCount}/{activePlatformAdapters.length}</span>
             <span>{currentSession ? '已保存' : '本地草稿'}</span>
           </div>
           <textarea
@@ -1110,7 +1129,7 @@ export function App() {
       {currentView === 'editor' ? (
       <aside className="preview-pane">
         <div className="platform-tabs">
-          {PLATFORM_ADAPTERS.map((adapter) => (
+          {activePlatformAdapters.map((adapter) => (
             <button
               key={adapter.id}
               className={selectedPlatform === adapter.id ? 'active' : ''}
@@ -1135,7 +1154,7 @@ export function App() {
 
             <div className="draft-heading">
               <div>
-                <span>{getPlatformName(editableDraft.platformId)}</span>
+                <span>{getPlatformName(editableDraft.platformId, activePlatformAdapters)}</span>
                 <h2 className="draft-title-text">{editableDraft.title}</h2>
               </div>
               <div className={`status ${contentReview?.status ?? 'not-reviewed'}`}>
@@ -1370,8 +1389,11 @@ function clampPreviewWidth(value: number): number {
   return Math.max(PREVIEW_MIN_WIDTH, Math.min(value, PREVIEW_MAX_WIDTH, maxByViewport));
 }
 
-function getPlatformName(platformId: PlatformId): string {
-  return PLATFORM_ADAPTERS.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
+function getPlatformName(
+  platformId: PlatformId,
+  adapters: Array<{ id: PlatformId; displayName: string }> = PLATFORM_ADAPTERS,
+): string {
+  return adapters.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
 }
 
 function createFallbackAccountConfig(platformId: PlatformId): PlatformAccountConfig {
@@ -1412,7 +1434,9 @@ function getAccountFieldLabel(platformId: string, key: string): string {
     return key;
   }
   return (
-    PLATFORM_ACCOUNT_SCHEMAS[platformId as PlatformId].fields.find((field) => field.key === key)
+    PLATFORM_ACCOUNT_SCHEMAS[platformId as BuiltInPlatformId].fields.find(
+      (field) => field.key === key,
+    )
       ?.label ?? key
   );
 }

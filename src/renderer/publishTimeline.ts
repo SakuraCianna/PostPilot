@@ -57,7 +57,7 @@ export function createPublishTimeline(input: {
         status: 'blocked',
         label: '待准备',
         message: '等待生成平台版本',
-        mode: 'officialApi',
+        mode: getPrimaryPublishMode(adapter),
         attempts: 0,
         canRetry: false,
       } satisfies PublishTimelineItem;
@@ -69,7 +69,7 @@ export function createPublishTimeline(input: {
       status: 'ready',
       label: '可发布',
       message: '等待发布任务',
-      mode: 'officialApi',
+      mode: getPrimaryPublishMode(adapter),
       attempts: 0,
       canRetry: false,
     } satisfies PublishTimelineItem;
@@ -124,6 +124,19 @@ function getLatestPlatformEvent(
   return events
     .filter((event) => event.platformId === platformId)
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0];
+}
+
+function getPrimaryPublishMode(adapter: PlatformAdapter): PublishMode {
+  if (adapter.publishModes.includes('officialApi')) {
+    return 'officialApi';
+  }
+  if (adapter.publishModes.includes('browserAssist')) {
+    return 'browserAssist';
+  }
+  if (adapter.publishModes.includes('exportOnly')) {
+    return 'exportOnly';
+  }
+  return 'simulated';
 }
 
 function getEventLabel(status: PublishEvent['status']): string {

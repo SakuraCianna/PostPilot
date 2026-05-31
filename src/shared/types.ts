@@ -2,7 +2,9 @@ export const DEEPSEEK_MODEL = 'deepseek-v4-flash' as const;
 
 export type DeepSeekModel = typeof DEEPSEEK_MODEL;
 
-export type PlatformId = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+export type BuiltInPlatformId = 'wechat' | 'zhihu' | 'bilibili' | 'xiaohongshu';
+
+export type PlatformId = BuiltInPlatformId | (string & {});
 
 export type PublishMode = 'officialApi' | 'browserAssist' | 'simulated' | 'exportOnly';
 
@@ -199,7 +201,7 @@ export interface PlatformAccountFieldSchema {
 }
 
 export interface PlatformAccountSchema {
-  platformId: PlatformId;
+  platformId: BuiltInPlatformId;
   displayName: string;
   supportsOfficialApi: boolean;
   fields: PlatformAccountFieldSchema[];

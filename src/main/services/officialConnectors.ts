@@ -1,5 +1,6 @@
 import { PLATFORM_ACCOUNT_SCHEMAS } from '../../shared/platformAccounts';
 import type {
+  BuiltInPlatformId,
   PlatformDraft,
   PlatformId,
   PublishReceipt,
@@ -13,7 +14,7 @@ interface RetryOptions {
 }
 
 interface VerifyAccountOptions {
-  platformId: PlatformId;
+  platformId: BuiltInPlatformId;
   account: SecretPlatformAccountConfig | null;
   fetchImpl?: typeof fetch;
 }
@@ -82,12 +83,12 @@ export async function verifyOfficialAccount(
 export async function publishWithOfficialConnector(
   options: PublishOfficialOptions,
 ): Promise<OfficialPublishResult> {
-  const schema = PLATFORM_ACCOUNT_SCHEMAS[options.draft.platformId];
+  const platformName = getOfficialPlatformName(options.draft.platformId);
 
   if (!options.account || !options.account.enabled) {
     return {
       status: 'failed',
-      message: `请先在设置中完成${schema.displayName}账号配置`,
+      message: `请先在设置中完成${platformName}账号配置`,
       attempts: 0,
     };
   }
@@ -286,11 +287,16 @@ function readWechatError(payload: Record<string, unknown>, fallback: string): st
 }
 
 function getUnsupportedOfficialMessage(platformId: PlatformId): string {
-  const messages: Record<PlatformId, string> = {
+  const messages: Record<string, string> = {
     wechat: '微信公众号官方发布接口不可用',
     zhihu: '知乎暂未开放稳定的官方写入发布接口',
     bilibili: 'B 站官方发布需要视频稿件文件和授权, 当前文本草稿无法直接发布',
     xiaohongshu: '小红书暂未开放稳定的普通笔记官方写入发布接口',
   };
-  return messages[platformId];
+  return messages[platformId] ?? `${platformId}暂未接入官方发布接口`;
+}
+
+function getOfficialPlatformName(platformId: PlatformId): string {
+  const schema = PLATFORM_ACCOUNT_SCHEMAS[platformId as BuiltInPlatformId];
+  return schema?.displayName ?? platformId;
 }

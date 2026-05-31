@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PLATFORM_ADAPTERS,
   applyDraftValidation,
+  createCustomPlatformAdapters,
   createLocalDrafts,
   validatePlatformDraft,
 } from './platformAdapters';
@@ -32,6 +33,40 @@ describe('platform adapters', () => {
     expect(drafts.every((draft) => draft.body.length > 0)).toBe(true);
     expect(drafts.find((draft) => draft.platformId === 'xiaohongshu')?.hashtags).toContain(
       '内容创作',
+    );
+  });
+
+  it('creates usable drafts for enabled custom platforms', () => {
+    const customAdapters = createCustomPlatformAdapters([
+      {
+        platformId: 'douyin',
+        displayName: '抖音',
+        builtIn: false,
+        enabled: true,
+        configured: true,
+        status: 'configured',
+        statusMessage: '账号配置已保存',
+        maskedFields: {
+          publishUrl: 'https://creator.douyin.com/',
+        },
+      },
+    ]);
+    const drafts = createLocalDrafts(
+      {
+        title: '多平台发布',
+        body: '把一篇内容同步到多个平台。',
+      },
+      customAdapters,
+    );
+
+    expect(customAdapters[0]).toMatchObject({
+      id: 'douyin',
+      displayName: '抖音',
+      publishModes: ['browserAssist', 'simulated', 'exportOnly'],
+    });
+    expect(drafts).toHaveLength(5);
+    expect(drafts.find((draft) => draft.platformId === 'douyin')?.body).toContain(
+      '为抖音生成的通用文本版本',
     );
   });
 

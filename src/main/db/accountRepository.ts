@@ -10,7 +10,7 @@ import {
 import type {
   PlatformAccountConfig,
   PlatformAccountStatus,
-  PlatformId,
+  BuiltInPlatformId,
   SavePlatformAccountInput,
   SecretPlatformAccountConfig,
   VerifyPlatformAccountResult,
@@ -35,7 +35,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
     return {
       platformId: row.platform_id,
       displayName: builtIn
-        ? PLATFORM_ACCOUNT_SCHEMAS[row.platform_id as PlatformId].displayName
+        ? PLATFORM_ACCOUNT_SCHEMAS[row.platform_id as BuiltInPlatformId].displayName
         : fields[CUSTOM_PLATFORM_NAME_FIELD] || row.platform_id,
       builtIn,
       enabled: row.enabled === 1,
@@ -63,8 +63,9 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
   return {
     listAccountConfigs(): PlatformAccountConfig[] {
       const builtInConfigs = Object.keys(PLATFORM_ACCOUNT_SCHEMAS).map((platformId) => {
-        const row = getRow(platformId as PlatformId);
-        return row ? mapRow(row) : createEmptyAccountConfig(platformId as PlatformId);
+        const builtInPlatformId = platformId as BuiltInPlatformId;
+        const row = getRow(builtInPlatformId);
+        return row ? mapRow(row) : createEmptyAccountConfig(builtInPlatformId);
       });
       const customRows = db
         .prepare('SELECT * FROM account_configs ORDER BY updated_at DESC')

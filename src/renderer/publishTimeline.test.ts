@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_ADAPTERS } from '../shared/platformAdapters';
+import { PLATFORM_ADAPTERS, createCustomPlatformAdapter } from '../shared/platformAdapters';
 import type { PlatformDraft, PublishEvent, SavedSession } from '../shared/types';
 import { createPublishTimeline } from './publishTimeline';
 
@@ -109,5 +109,32 @@ describe('publish timeline helpers', () => {
     expect(timeline.summary.success).toBe(2);
     expect(timeline.summary.total).toBe(4);
     expect(timeline.summary.progress).toBe(50);
+  });
+
+  it('uses browser assist as the default publish mode for custom platforms', () => {
+    const customAdapter = createCustomPlatformAdapter('douyin', '抖音');
+    const timeline = createPublishTimeline({
+      session: {
+        ...session,
+        drafts: [
+          ...drafts,
+          {
+            platformId: 'douyin',
+            title: '抖音标题',
+            summary: '摘要',
+            body: '正文',
+            hashtags: [],
+            status: 'ready',
+          },
+        ],
+      },
+      adapters: [...PLATFORM_ADAPTERS, customAdapter],
+    });
+
+    expect(timeline.items.find((item) => item.platformId === 'douyin')).toMatchObject({
+      platformName: '抖音',
+      status: 'ready',
+      mode: 'browserAssist',
+    });
   });
 });

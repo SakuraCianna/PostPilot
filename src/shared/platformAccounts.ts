@@ -1,13 +1,13 @@
 import type {
+  BuiltInPlatformId,
   PlatformAccountConfig,
   PlatformAccountSchema,
   PlatformAccountStatus,
-  PlatformId,
 } from './types';
 
 export const CUSTOM_PLATFORM_NAME_FIELD = '__platformName';
 
-export const PLATFORM_ACCOUNT_SCHEMAS: Record<PlatformId, PlatformAccountSchema> = {
+export const PLATFORM_ACCOUNT_SCHEMAS: Record<BuiltInPlatformId, PlatformAccountSchema> = {
   wechat: {
     platformId: 'wechat',
     displayName: '微信公众号',
@@ -109,7 +109,7 @@ export function maskAccountFields(
   );
 }
 
-export function createEmptyAccountConfig(platformId: PlatformId): PlatformAccountConfig {
+export function createEmptyAccountConfig(platformId: BuiltInPlatformId): PlatformAccountConfig {
   return {
     platformId,
     displayName: PLATFORM_ACCOUNT_SCHEMAS[platformId].displayName,
@@ -122,7 +122,7 @@ export function createEmptyAccountConfig(platformId: PlatformId): PlatformAccoun
   };
 }
 
-export function isBuiltInPlatformId(platformId: string): platformId is PlatformId {
+export function isBuiltInPlatformId(platformId: string): platformId is BuiltInPlatformId {
   return Object.hasOwn(PLATFORM_ACCOUNT_SCHEMAS, platformId);
 }
 

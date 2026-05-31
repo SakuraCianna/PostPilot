@@ -13,6 +13,7 @@ import type {
 import { publishWithOfficialConnector } from './officialConnectors';
 
 export interface PublishTaskContext {
+  adapters?: PlatformAdapter[];
   getAccountConfig?: (platformId: PlatformId) => SecretPlatformAccountConfig | null;
   fetchImpl?: typeof fetch;
 }
@@ -21,7 +22,8 @@ export async function createPublishTask(
   input: PublishTaskInput,
   context: PublishTaskContext = {},
 ): Promise<PublishTaskResult> {
-  const adapter = getPlatformAdapter(input.draft.platformId);
+  const adapter = getPlatformAdapter(input.draft.platformId, context.adapters);
+  const account = context.getAccountConfig?.(input.draft.platformId) ?? null;
 
   if (!adapter.publishModes.includes(input.mode)) {
     return {
@@ -68,14 +70,14 @@ export async function createPublishTask(
         status: 'success',
         message: `${adapter.displayName} 导出内容已生成`,
       },
-      artifact: createArtifact(input),
+      artifact: createArtifact(input, adapter),
     };
   }
 
   if (input.mode === 'officialApi') {
     const result = await publishWithOfficialConnector({
       draft: input.draft,
-      account: context.getAccountConfig?.(input.draft.platformId) ?? null,
+      account,
       fetchImpl: context.fetchImpl,
     });
     return {
@@ -100,7 +102,7 @@ export async function createPublishTask(
         status: 'pending',
         message: `${adapter.displayName} 浏览器辅助填充包已生成, 请登录平台后执行自动填充脚本`,
       },
-      artifact: createBrowserAssistArtifact(input, adapter),
+      artifact: createBrowserAssistArtifact(input, adapter, account),
     };
   }
 
@@ -118,13 +120,14 @@ export async function createPublishTask(
 function createBrowserAssistArtifact(
   input: PublishTaskInput,
   adapter: PlatformAdapter,
+  account: SecretPlatformAccountConfig | null,
 ): PublishArtifact {
   const payload = {
     platformName: adapter.displayName,
-    targetUrl: getBrowserAssistTargetUrl(input.draft.platformId),
+    targetUrl: getBrowserAssistTargetUrl(input.draft.platformId, account),
     title: input.draft.title,
     summary: input.draft.summary,
-    body: formatDraftForClipboard(input.draft),
+    body: formatDraftForClipboard(input.draft, adapter),
     hashtags: input.draft.hashtags,
   };
   const script = createBrowserAssistScript(payload);
@@ -136,14 +139,26 @@ function createBrowserAssistArtifact(
   };
 }
 
-function getBrowserAssistTargetUrl(platformId: PlatformId): string {
-  const urls: Record<PlatformId, string> = {
+function getBrowserAssistTargetUrl(
+  platformId: PlatformId,
+  account: SecretPlatformAccountConfig | null,
+): string {
+  const urls: Record<string, string> = {
     wechat: 'https://mp.weixin.qq.com/',
     zhihu: 'https://www.zhihu.com/',
     bilibili: 'https://member.bilibili.com/',
     xiaohongshu: 'https://creator.xiaohongshu.com/',
   };
-  return urls[platformId];
+  const configuredUrl =
+    account?.fields.publishUrl?.trim() ??
+    account?.fields.targetUrl?.trim() ??
+    account?.fields.url?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  return urls[platformId] ?? `https://www.baidu.com/s?wd=${encodeURIComponent(`${platformId} 创作者中心`)}`;
 }
 
 function createBrowserAssistScript(payload: {
@@ -246,13 +261,12 @@ function createBrowserAssistHtml(
 </html>`;
 }
 
-function createArtifact(input: PublishTaskInput): PublishArtifact {
-  const adapter = getPlatformAdapter(input.draft.platformId);
+function createArtifact(input: PublishTaskInput, adapter: PlatformAdapter): PublishArtifact {
   const exportMeta = getExportMeta(adapter.exportFormat);
 
   return {
     filename: `${input.draft.platformId}-${Date.now()}.${exportMeta.extension}`,
-    content: formatDraftForClipboard(input.draft),
+    content: formatDraftForClipboard(input.draft, adapter),
     mimeType: exportMeta.mimeType,
   };
 }

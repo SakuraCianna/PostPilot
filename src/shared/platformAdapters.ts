@@ -1,4 +1,10 @@
-import type { CanonicalContent, PlatformAdapter, PlatformDraft, PlatformId } from './types';
+import type {
+  CanonicalContent,
+  PlatformAccountConfig,
+  PlatformAdapter,
+  PlatformDraft,
+  PlatformId,
+} from './types';
 
 export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
   {
@@ -45,20 +51,48 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
 
 const PLATFORM_BY_ID = new Map(PLATFORM_ADAPTERS.map((adapter) => [adapter.id, adapter]));
 
-export function getPlatformAdapter(platformId: PlatformId): PlatformAdapter {
-  const adapter = PLATFORM_BY_ID.get(platformId);
-  if (!adapter) {
-    throw new Error(`未知平台: ${platformId}`);
-  }
-  return adapter;
+export function getPlatformAdapter(
+  platformId: PlatformId,
+  customAdapters: PlatformAdapter[] = [],
+): PlatformAdapter {
+  const adapter =
+    PLATFORM_BY_ID.get(platformId) ?? customAdapters.find((item) => item.id === platformId);
+  return adapter ?? createCustomPlatformAdapter(platformId, platformId);
 }
 
-export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
+export function createCustomPlatformAdapters(
+  configs: PlatformAccountConfig[],
+): PlatformAdapter[] {
+  return configs
+    .filter((config) => !config.builtIn && config.enabled && config.configured)
+    .map((config) => createCustomPlatformAdapter(config.platformId, config.displayName));
+}
+
+export function createCustomPlatformAdapter(
+  platformId: string,
+  displayName: string,
+): PlatformAdapter {
+  return {
+    id: platformId,
+    displayName,
+    description: '适合自定义平台的通用文本发布流程',
+    tone: '贴近原文, 保持清晰, 便于二次编辑',
+    capabilities: ['通用文本草稿', '导出内容', '浏览器辅助发布'],
+    publishModes: ['browserAssist', 'simulated', 'exportOnly'],
+    limits: { titleMax: 80, bodyMax: 10000, hashtagMax: 8 },
+    exportFormat: 'plain',
+  };
+}
+
+export function createLocalDrafts(
+  content: CanonicalContent,
+  customAdapters: PlatformAdapter[] = [],
+): PlatformDraft[] {
   const title = normalizeTitle(content.title, content.body);
   const plainBody = stripMarkdown(content.body);
   const summary = createSummary(plainBody);
 
-  return [
+  const builtInDrafts = [
     withWarnings({
       platformId: 'wechat',
       title: clipText(title, 64),
@@ -92,10 +126,30 @@ export function createLocalDrafts(content: CanonicalContent): PlatformDraft[] {
       status: 'ready',
     }),
   ];
+
+  const customDrafts = customAdapters.map((adapter) =>
+    withWarnings(
+      {
+        platformId: adapter.id,
+        title: clipText(title, adapter.limits.titleMax),
+        summary,
+        body: `${plainBody}\n\n发布提示: 这是为${adapter.displayName}生成的通用文本版本, 可在发布前按平台规则微调。`,
+        hashtags: ['内容创作', '效率工具'],
+        status: 'ready',
+      },
+      adapter,
+    ),
+  );
+
+  return [...builtInDrafts, ...customDrafts];
 }
 
-export function validatePlatformDraft(platformId: PlatformId, draft: PlatformDraft): string[] {
-  const adapter = getPlatformAdapter(platformId);
+export function validatePlatformDraft(
+  platformId: PlatformId,
+  draft: PlatformDraft,
+  adapterOverride?: PlatformAdapter,
+): string[] {
+  const adapter = adapterOverride ?? getPlatformAdapter(platformId);
   const warnings: string[] = [];
 
   if (!draft.title.trim()) {
@@ -140,8 +194,11 @@ export function applyDraftValidation(draft: PlatformDraft): PlatformDraft {
   };
 }
 
-export function formatDraftForClipboard(draft: PlatformDraft): string {
-  const adapter = getPlatformAdapter(draft.platformId);
+export function formatDraftForClipboard(
+  draft: PlatformDraft,
+  adapterOverride?: PlatformAdapter,
+): string {
+  const adapter = adapterOverride ?? getPlatformAdapter(draft.platformId);
   const tags = draft.hashtags.length > 0 ? `\n\n${draft.hashtags.map((tag) => `#${tag}`).join(' ')}` : '';
 
   if (adapter.exportFormat === 'html') {
@@ -151,8 +208,8 @@ export function formatDraftForClipboard(draft: PlatformDraft): string {
   return `${draft.title}\n\n${draft.summary}\n\n${draft.body}${tags}`.trim();
 }
 
-function withWarnings(draft: PlatformDraft): PlatformDraft {
-  const warnings = validatePlatformDraft(draft.platformId, draft);
+function withWarnings(draft: PlatformDraft, adapterOverride?: PlatformAdapter): PlatformDraft {
+  const warnings = validatePlatformDraft(draft.platformId, draft, adapterOverride);
   return {
     ...draft,
     status: warnings.length > 0 ? 'needs-review' : draft.status,

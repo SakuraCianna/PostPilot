@@ -12,6 +12,7 @@ import { generateAdaptations } from './services/deepseek';
 import { verifyOfficialAccount } from './services/officialConnectors';
 import { createPublishTask } from './services/publishers';
 import {
+  createCustomPlatformAdapters,
   createLocalDrafts,
   PLATFORM_ADAPTERS,
 } from '../shared/platformAdapters';
@@ -69,7 +70,7 @@ function createWindow(): void {
 
 ipcMain.handle('bootstrap:get', () => ({
   model: DEEPSEEK_MODEL,
-  platforms: PLATFORM_ADAPTERS,
+  platforms: getActivePlatformAdapters(),
   sessions: sessions.listSessions(),
   settings: settings.getModelSettings(),
   accountConfigs: accounts.listAccountConfigs(),
@@ -183,7 +184,7 @@ ipcMain.handle('adaptations:generate', async (_event, input: GenerateAdaptations
     id: input.sessionId,
     title,
     sourceBody: body,
-    drafts: result.drafts,
+    drafts: withCustomPlatformDrafts(result.drafts, { title, body }),
     model: result.model,
     modelStatus: result.modelStatus,
     modelMessage: result.modelMessage,
@@ -213,6 +214,7 @@ ipcMain.handle(
         contentReview: reviewedSession.contentReview,
       },
       {
+        adapters: getActivePlatformAdapters(),
         getAccountConfig: (platformId) => accounts.getSecretAccountConfig(platformId),
       },
     );
@@ -256,6 +258,29 @@ function normalizeTitle(title: string, body: string): string {
     return trimmed;
   }
   return createLocalDrafts({ title: '', body })[0]?.title ?? '未命名内容';
+}
+
+function getActivePlatformAdapters() {
+  return [...PLATFORM_ADAPTERS, ...createCustomPlatformAdapters(accounts.listAccountConfigs())];
+}
+
+function withCustomPlatformDrafts(
+  drafts: ReturnType<typeof createLocalDrafts>,
+  content: { title: string; body: string },
+) {
+  const customAdapters = createCustomPlatformAdapters(accounts.listAccountConfigs());
+  if (customAdapters.length === 0) {
+    return drafts;
+  }
+
+  const customDrafts = createLocalDrafts(content, customAdapters).filter((draft) =>
+    customAdapters.some((adapter) => adapter.id === draft.platformId),
+  );
+  const existingPlatformIds = new Set(drafts.map((draft) => draft.platformId));
+  return [
+    ...drafts,
+    ...customDrafts.filter((draft) => !existingPlatformIds.has(draft.platformId)),
+  ];
 }
 
 async function ensureContentReview(session: NonNullable<ReturnType<typeof sessions.getSession>>) {
