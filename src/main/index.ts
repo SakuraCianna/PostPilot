@@ -83,6 +83,14 @@ ipcMain.handle('sessions:list', () => sessions.listSessions());
 
 ipcMain.handle('sessions:get', (_event, id: string) => sessions.getSession(id));
 
+ipcMain.handle('sessions:delete', (_event, id: string) => {
+  const deleted = sessions.deleteSession(id);
+  if (!deleted) {
+    throw new Error('历史记录不存在或已被删除');
+  }
+  return sessions.listSessions();
+});
+
 ipcMain.handle('settings:get', () => settings.getModelSettings());
 
 ipcMain.handle('settings:save', (_event, input: SaveModelSettingsInput) =>

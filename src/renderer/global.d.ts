@@ -22,6 +22,7 @@ declare global {
       getBootstrap(): Promise<BootstrapPayload>;
       listSessions(): Promise<SessionSummary[]>;
       getSession(id: string): Promise<SavedSession | null>;
+      deleteSession(id: string): Promise<SessionSummary[]>;
       getSettings(): Promise<ModelSettings>;
       saveSettings(input: SaveModelSettingsInput): Promise<ModelSettings>;
       listAccountConfigs(): Promise<PlatformAccountConfig[]>;

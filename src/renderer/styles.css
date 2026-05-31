@@ -162,12 +162,14 @@ button:disabled {
 
 .history-item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
   gap: 5px;
+  align-items: start;
   width: 100%;
   border-radius: 8px;
   background: transparent;
   color: var(--black);
-  padding: 10px;
+  padding: 0;
   text-align: left;
 }
 
@@ -176,7 +178,17 @@ button:disabled {
   background: var(--soft-strong);
 }
 
-.history-item strong {
+.history-content {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  background: transparent;
+  color: inherit;
+  padding: 10px 2px 10px 10px;
+  text-align: left;
+}
+
+.history-content strong {
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
@@ -184,7 +196,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-.history-item span {
+.history-content span {
   display: -webkit-box;
   overflow: hidden;
   color: var(--muted);
@@ -194,9 +206,28 @@ button:disabled {
   -webkit-line-clamp: 2;
 }
 
-.history-item time {
+.history-content time {
   color: var(--subtle);
   font-size: 11px;
+}
+
+.history-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 8px 7px 0 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--subtle);
+}
+
+.history-delete:hover {
+  border-color: #f1c4c0;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .sidebar-settings {

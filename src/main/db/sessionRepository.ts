@@ -120,6 +120,11 @@ export function createSessionRepository(db: PostPilotDatabase) {
       return mapSession(row, eventRows);
     },
 
+    deleteSession(id: string): boolean {
+      const result = db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+      return result.changes > 0;
+    },
+
     recordPublishEvent(input: PublishEventInput): PublishEvent {
       const id = randomUUID();
       const createdAt = new Date().toISOString();

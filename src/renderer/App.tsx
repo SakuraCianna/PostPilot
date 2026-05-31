@@ -75,6 +75,7 @@ export function App() {
   const [publishingPlatform, setPublishingPlatform] = useState<PublishProgress>(null);
   const [isCreatingPreset, setIsCreatingPreset] = useState(false);
   const [deletingPreset, setDeletingPreset] = useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
   const [newCustomPlatform, setNewCustomPlatform] = useState({
     displayName: '',
@@ -283,6 +284,7 @@ export function App() {
     const loaded = await window.postPilot.getSession(id);
     if (!loaded) {
       setNotice('历史记录不存在');
+      await refreshSessions();
       return;
     }
 
@@ -292,6 +294,37 @@ export function App() {
     setSelectedPlatform(loaded.drafts[0]?.platformId ?? 'wechat');
     setCurrentView('results');
     setNotice(loaded.modelMessage);
+  }
+
+  async function handleDeleteSession(session: SessionSummary) {
+    const confirmed = window.confirm(
+      `确定删除“${session.title}”这条历史记录吗？删除后会同步移除对应的审查结果和模拟发布记录。`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingSessionId(session.id);
+
+    try {
+      const nextSessions = await window.postPilot.deleteSession(session.id);
+      setSessions(nextSessions);
+
+      if (currentSession?.id === session.id) {
+        setCurrentSession(null);
+        setTitle(DEMO_TITLE);
+        setBody(DEMO_BODY);
+        setSelectedPlatform('wechat');
+        setCurrentView('editor');
+      }
+
+      setNotice('历史记录已删除');
+    } catch (error) {
+      await refreshSessions();
+      setNotice(error instanceof Error ? error.message : '删除历史记录失败');
+    } finally {
+      setDeletingSessionId(null);
+    }
   }
 
   function handleNewSession() {
@@ -891,16 +924,34 @@ export function App() {
             <p className="empty-text">暂无历史</p>
           ) : (
             sessions.map((item) => (
-              <button
+              <article
                 className={`history-item ${currentSession?.id === item.id ? 'active' : ''}`}
                 key={item.id}
-                type="button"
-                onClick={() => void handleLoadSession(item.id)}
               >
-                <strong>{item.title}</strong>
-                <span>{item.sourceBody.slice(0, 56)}</span>
-                <time>{formatTime(item.updatedAt)}</time>
-              </button>
+                <button
+                  className="history-content"
+                  type="button"
+                  onClick={() => void handleLoadSession(item.id)}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{item.sourceBody.slice(0, 56)}</span>
+                  <time>{formatTime(item.updatedAt)}</time>
+                </button>
+                <button
+                  aria-label={`删除历史记录 ${item.title}`}
+                  className="history-delete"
+                  disabled={deletingSessionId === item.id}
+                  title="删除历史记录"
+                  type="button"
+                  onClick={() => void handleDeleteSession(item)}
+                >
+                  {deletingSessionId === item.id ? (
+                    <Loader2 className="spin" size={14} />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
+                </button>
+              </article>
             ))
           )}
         </div>

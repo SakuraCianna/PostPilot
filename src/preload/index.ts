@@ -21,6 +21,8 @@ const api = {
   getBootstrap: (): Promise<BootstrapPayload> => ipcRenderer.invoke('bootstrap:get'),
   listSessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke('sessions:list'),
   getSession: (id: string): Promise<SavedSession | null> => ipcRenderer.invoke('sessions:get', id),
+  deleteSession: (id: string): Promise<SessionSummary[]> =>
+    ipcRenderer.invoke('sessions:delete', id),
   getSettings: (): Promise<ModelSettings> => ipcRenderer.invoke('settings:get'),
   saveSettings: (input: SaveModelSettingsInput): Promise<ModelSettings> =>
     ipcRenderer.invoke('settings:save', input),

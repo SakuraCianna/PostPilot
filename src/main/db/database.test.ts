@@ -76,6 +76,18 @@ describe('session repository', () => {
     expect(loaded?.contentReview?.status).toBe('blocked');
     expect(loaded?.contentReview?.issues[0]?.kind).toBe('legal');
 
+    expect(repo.deleteSession(saved.id)).toBe(true);
+    expect(repo.getSession(saved.id)).toBeNull();
+    expect(repo.listSessions()).toHaveLength(0);
+    expect(
+      (
+        db
+          .prepare('SELECT COUNT(*) as count FROM publish_events WHERE session_id = ?')
+          .get(saved.id) as { count: number }
+      ).count,
+    ).toBe(0);
+    expect(repo.deleteSession(saved.id)).toBe(false);
+
     db.close();
   });
 });
