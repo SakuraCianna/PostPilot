@@ -40,7 +40,7 @@ import {
 
 const INITIAL_BODY = `把你的原始内容粘贴到这里。
 
-PostPilot 会生成公众号, 知乎, B 站, 小红书, 抖音等多个平台版本。
+PostPilot 会生成微信公众号, 哔哩哔哩, 抖音三个内置平台版本。
 
 第一版默认保存历史, 并支持复制和模拟发布。`;
 
@@ -54,23 +54,8 @@ const PLATFORM_CONFIG_LINKS: Record<
     { label: '创作后台', url: 'https://mp.weixin.qq.com/' },
     { label: '公众号平台', url: 'https://mp.weixin.qq.com/' },
   ],
-  zhihu: [{ label: '开放平台', url: 'https://developer.zhihu.com/' }],
   bilibili: [{ label: '开放平台', url: 'https://openhome.bilibili.com/doc' }],
-  xiaohongshu: [
-    {
-      label: '开放平台',
-      url: 'https://school.xiaohongshu.com/en/open/quick-start/summary.html',
-    },
-    {
-      label: '服务商接口',
-      url: 'https://miniapp.xiaohongshu.com/third/api-3rd/post-api-rmp-tp-token',
-    },
-  ],
   douyin: [{ label: '创作服务', url: 'https://creator.douyin.com/' }],
-  kuaishou: [{ label: '创作者服务', url: 'https://cp.kuaishou.com/' }],
-  weibo: [{ label: '微博首页', url: 'https://weibo.com/' }],
-  toutiao: [{ label: '头条号', url: 'https://mp.toutiao.com/' }],
-  baijiahao: [{ label: '百家号', url: 'https://baijiahao.baidu.com/' }],
 };
 
 type AppView = 'editor' | 'results' | 'settings';
@@ -853,7 +838,7 @@ export function App() {
             <span>Tavily 会生成平台风格 Markdown 预设</span>
           </div>
           <input
-            placeholder="平台名称, 例如 哔哩哔哩"
+            placeholder="平台名称, 例如 小红书"
             value={newCustomPlatform.displayName}
             onChange={(event) =>
               setNewCustomPlatform((current) => ({
@@ -863,7 +848,7 @@ export function App() {
             }
           />
           <input
-            placeholder="平台标识, 例如 bilibili"
+            placeholder="平台标识, 例如 xiaohongshu"
             value={newCustomPlatform.platformId}
             onChange={(event) =>
               setNewCustomPlatform((current) => ({

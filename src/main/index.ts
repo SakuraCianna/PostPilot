@@ -45,6 +45,7 @@ const accounts = createAccountRepository(db, secretCodec);
 const platformPresets = createPlatformPresetResearchService({
   presetDir: path.join(app.getPath('userData'), 'platform-presets'),
 });
+platformPresets.seedDefaultPresets();
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

@@ -6,7 +6,7 @@ import {
 import type { PlatformDraft } from '../shared/types';
 
 const baseDraft: PlatformDraft = {
-  platformId: 'zhihu',
+  platformId: 'bilibili',
   title: '预览标题',
   summary: '预览摘要',
   body: '',

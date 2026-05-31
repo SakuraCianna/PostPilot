@@ -4,14 +4,8 @@ export type DeepSeekModel = typeof DEEPSEEK_MODEL;
 
 export type BuiltInPlatformId =
   | 'wechat'
-  | 'zhihu'
   | 'bilibili'
-  | 'xiaohongshu'
-  | 'douyin'
-  | 'kuaishou'
-  | 'weibo'
-  | 'toutiao'
-  | 'baijiahao';
+  | 'douyin';
 
 export type PlatformId = BuiltInPlatformId | (string & {});
 

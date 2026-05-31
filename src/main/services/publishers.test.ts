@@ -72,18 +72,18 @@ describe('publishers', () => {
       {
         draft: {
           ...draft,
-          platformId: 'douyin',
-          title: '抖音标题',
-          body: '抖音正文',
+          platformId: 'threads',
+          title: 'Threads 标题',
+          body: 'Threads 正文',
         },
         mode: 'simulated',
       },
       {
-        adapters: [createCustomPlatformAdapter('douyin', '抖音')],
+        adapters: [createCustomPlatformAdapter('threads', 'Threads')],
       },
     );
 
     expect(task.status).toBe('success');
-    expect(task.event.message).toBe('抖音 模拟发布已完成');
+    expect(task.event.message).toBe('Threads 模拟发布已完成');
   });
 });

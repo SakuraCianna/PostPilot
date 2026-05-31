@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_PLATFORM_PRESETS } from '../../shared/defaultPlatformPresets';
 import type { PlatformPresetResearchResult } from '../../shared/types';
 
 interface TavilySearchResult {
@@ -14,6 +15,7 @@ interface TavilySearchResponse {
 }
 
 export interface PlatformPresetResearchService {
+  seedDefaultPresets(): void;
   readPresetMarkdowns(): Record<string, string>;
   researchPlatformPreset(input: {
     platformId: string;
@@ -37,13 +39,26 @@ export function createPlatformPresetResearchService(input: {
     return presetPath;
   }
 
+  function seedDefaultPresets(): void {
+    fs.mkdirSync(input.presetDir, { recursive: true });
+    for (const [platformId, markdown] of Object.entries(DEFAULT_PLATFORM_PRESETS)) {
+      const presetPath = getPresetPath(platformId);
+      if (!fs.existsSync(presetPath)) {
+        fs.writeFileSync(presetPath, markdown, 'utf8');
+      }
+    }
+  }
+
   return {
+    seedDefaultPresets,
+
     readPresetMarkdowns(): Record<string, string> {
+      seedDefaultPresets();
       if (!fs.existsSync(input.presetDir)) {
-        return {};
+        return DEFAULT_PLATFORM_PRESETS;
       }
 
-      return Object.fromEntries(
+      const diskPresets = Object.fromEntries(
         fs
           .readdirSync(input.presetDir)
           .filter((filename) => filename.endsWith('.md'))
@@ -52,6 +67,11 @@ export function createPlatformPresetResearchService(input: {
             fs.readFileSync(path.join(input.presetDir, filename), 'utf8'),
           ]),
       );
+
+      return {
+        ...DEFAULT_PLATFORM_PRESETS,
+        ...diskPresets,
+      };
     },
 
     async researchPlatformPreset({

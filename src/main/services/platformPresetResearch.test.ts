@@ -29,6 +29,29 @@ describe('platform preset research service', () => {
     expect(readFileSync(result.presetPath, 'utf8')).toContain('# 哔哩哔哩 平台风格预设');
   });
 
+  it('seeds built-in demo platform presets as markdown files', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-presets-'));
+    tempDirs.push(dir);
+    const service = createPlatformPresetResearchService({ presetDir: dir });
+
+    service.seedDefaultPresets();
+
+    expect(readFileSync(path.join(dir, 'wechat.md'), 'utf8')).toContain(
+      '# 微信公众号平台风格预设',
+    );
+    expect(readFileSync(path.join(dir, 'bilibili.md'), 'utf8')).toContain(
+      '# 哔哩哔哩平台风格预设',
+    );
+    expect(readFileSync(path.join(dir, 'douyin.md'), 'utf8')).toContain(
+      '# 抖音平台风格预设',
+    );
+    expect(Object.keys(service.readPresetMarkdowns()).sort()).toEqual([
+      'bilibili',
+      'douyin',
+      'wechat',
+    ]);
+  });
+
   it('calls Tavily search and stores sources in markdown', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'postpilot-presets-'));
     tempDirs.push(dir);

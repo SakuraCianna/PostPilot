@@ -170,6 +170,7 @@ async function callDeepSeekRewrite(
               tone: adapter.tone,
               limits: adapter.limits,
               exportFormat: adapter.exportFormat,
+              styleGuide: adapter.styleGuide,
             })),
           }),
         },

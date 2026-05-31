@@ -1,3 +1,4 @@
+import { DEFAULT_PLATFORM_PRESETS } from './defaultPlatformPresets';
 import type {
   CanonicalContent,
   PlatformAccountConfig,
@@ -12,90 +13,33 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
     displayName: '微信公众号',
     description: '适合长文排版, 摘要和封面草稿链路',
     tone: '专业, 清晰, 有结构',
-    capabilities: ['HTML 长文', '摘要生成', '模拟发布'],
+    capabilities: ['HTML 长文', '摘要生成', '模拟发布', '内置风格预设'],
     publishModes: ['simulated'],
     limits: { titleMax: 64, bodyMax: 20000, hashtagMax: 0 },
     exportFormat: 'html',
-  },
-  {
-    id: 'zhihu',
-    displayName: '知乎',
-    description: '适合观点型文章, 强调问题意识和论证',
-    tone: '理性, 有判断, 注重可信度',
-    capabilities: ['Markdown 文章', '引用友好文案', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 80, bodyMax: 30000, hashtagMax: 5 },
-    exportFormat: 'markdown',
+    styleGuide: DEFAULT_PLATFORM_PRESETS.wechat,
   },
   {
     id: 'bilibili',
-    displayName: 'B 站',
+    displayName: '哔哩哔哩',
     description: '适合视频简介, 分区标签和互动引导',
     tone: '轻松, 直接, 有互动感',
-    capabilities: ['视频简介', '标签建议', '模拟发布'],
+    capabilities: ['视频简介', '标签建议', '模拟发布', '内置风格预设'],
     publishModes: ['simulated'],
     limits: { titleMax: 80, bodyMax: 2000, hashtagMax: 10 },
     exportFormat: 'plain',
-  },
-  {
-    id: 'xiaohongshu',
-    displayName: '小红书',
-    description: '适合短标题, 种草口吻和话题标签',
-    tone: '自然, 口语化, 强调收获感',
-    capabilities: ['短笔记', '话题标签', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 20, bodyMax: 1000, hashtagMax: 6 },
-    exportFormat: 'plain',
+    styleGuide: DEFAULT_PLATFORM_PRESETS.bilibili,
   },
   {
     id: 'douyin',
     displayName: '抖音',
     description: '适合短视频标题, 看点前置和评论互动',
     tone: '短促, 有钩子, 强互动',
-    capabilities: ['短视频标题', '口播简介', '模拟发布'],
+    capabilities: ['短视频标题', '口播简介', '模拟发布', '内置风格预设'],
     publishModes: ['simulated'],
     limits: { titleMax: 55, bodyMax: 1000, hashtagMax: 8 },
     exportFormat: 'plain',
-  },
-  {
-    id: 'kuaishou',
-    displayName: '快手',
-    description: '适合生活化短视频简介和真实场景表达',
-    tone: '接地气, 直接, 有陪伴感',
-    capabilities: ['短视频简介', '生活化表达', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 50, bodyMax: 1000, hashtagMax: 8 },
-    exportFormat: 'plain',
-  },
-  {
-    id: 'weibo',
-    displayName: '微博',
-    description: '适合短动态, 话题讨论和热点扩散',
-    tone: '简短, 有观点, 适合转发讨论',
-    capabilities: ['短动态', '话题标签', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 40, bodyMax: 2000, hashtagMax: 6 },
-    exportFormat: 'plain',
-  },
-  {
-    id: 'toutiao',
-    displayName: '今日头条',
-    description: '适合资讯型标题, 结构化正文和清晰信息增量',
-    tone: '信息密度高, 标题清楚, 重视可读性',
-    capabilities: ['资讯标题', '结构化正文', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 30, bodyMax: 10000, hashtagMax: 5 },
-    exportFormat: 'plain',
-  },
-  {
-    id: 'baijiahao',
-    displayName: '百家号',
-    description: '适合搜索友好的标题和知识型长文',
-    tone: '稳健, 清晰, 强调信息价值',
-    capabilities: ['知识长文', '搜索友好标题', '模拟发布'],
-    publishModes: ['simulated'],
-    limits: { titleMax: 30, bodyMax: 10000, hashtagMax: 5 },
-    exportFormat: 'plain',
+    styleGuide: DEFAULT_PLATFORM_PRESETS.douyin,
   },
 ];
 
@@ -189,17 +133,6 @@ function createDraftForAdapter(
     };
   }
 
-  if (adapter.id === 'zhihu') {
-    return {
-      platformId: adapter.id,
-      title: clipText(title, adapter.limits.titleMax),
-      summary,
-      body: `# ${clipText(title, adapter.limits.titleMax)}\n\n${plainBody}\n\n---\n\n发布前检查: 补充来源, 调整小标题, 确认评论区引导`,
-      hashtags: ['内容创作', '效率工具'],
-      status: 'ready',
-    };
-  }
-
   if (adapter.id === 'bilibili') {
     return {
       platformId: adapter.id,
@@ -211,29 +144,7 @@ function createDraftForAdapter(
     };
   }
 
-  if (adapter.id === 'xiaohongshu') {
-    return {
-      platformId: adapter.id,
-      title: clipText(title, adapter.limits.titleMax),
-      summary,
-      body: `${summary}\n\n${clipText(plainBody, 620)}\n\n适合想把一篇内容同步到多个平台的创作者`,
-      hashtags: ['内容创作', '自媒体', '效率工具', '创作者工具'],
-      status: 'ready',
-    };
-  }
-
-  if (adapter.id === 'weibo') {
-    return {
-      platformId: adapter.id,
-      title: clipText(title, adapter.limits.titleMax),
-      summary,
-      body: `${clipText(summary, 120)}\n\n${clipText(plainBody, 520)}\n\n你怎么看?`,
-      hashtags: ['内容创作', '效率工具'],
-      status: 'ready',
-    };
-  }
-
-  if (adapter.id === 'douyin' || adapter.id === 'kuaishou') {
+  if (adapter.id === 'douyin') {
     return {
       platformId: adapter.id,
       title: clipText(title, adapter.limits.titleMax),
@@ -260,7 +171,8 @@ function createCustomDraftBody(
   adapter: PlatformAdapter,
 ): string {
   const hints = extractPresetHighlights(adapter.styleGuide);
-  const hintText = hints.length > 0 ? `\n\n适配要点:\n${hints.map((hint) => `- ${hint}`).join('\n')}` : '';
+  const hintText =
+    hints.length > 0 ? `\n\n适配要点:\n${hints.map((hint) => `- ${hint}`).join('\n')}` : '';
   return `${summary}\n\n${clipText(plainBody, 1200)}${hintText}`;
 }
 
@@ -319,7 +231,8 @@ export function formatDraftForClipboard(
   adapterOverride?: PlatformAdapter,
 ): string {
   const adapter = adapterOverride ?? getPlatformAdapter(draft.platformId);
-  const tags = draft.hashtags.length > 0 ? `\n\n${draft.hashtags.map((tag) => `#${tag}`).join(' ')}` : '';
+  const tags =
+    draft.hashtags.length > 0 ? `\n\n${draft.hashtags.map((tag) => `#${tag}`).join(' ')}` : '';
 
   if (adapter.exportFormat === 'html') {
     return `${draft.body}${tags}`;

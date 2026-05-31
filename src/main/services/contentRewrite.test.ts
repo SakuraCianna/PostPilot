@@ -16,7 +16,7 @@ const riskyDrafts: PlatformDraft[] = [
     status: 'ready',
   },
   {
-    platformId: 'zhihu',
+    platformId: 'bilibili',
     title: '收益承诺',
     summary: '普通摘要',
     body: '这个方案保证收益, 面向低端用户。',
@@ -125,7 +125,7 @@ describe('content rewrite service', () => {
       title: '收益提示',
       status: 'ready',
     });
-    expect(result.drafts[1]?.platformId).toBe('zhihu');
+    expect(result.drafts[1]?.platformId).toBe('bilibili');
     expect(result.drafts[1]?.status).toBe('ready');
   });
 
@@ -162,8 +162,8 @@ describe('content rewrite service', () => {
       drafts: [
         riskyDrafts[0]!,
         {
-          platformId: 'douyin',
-          title: '抖音标题',
+          platformId: 'threads',
+          title: 'Threads 标题',
           summary: '保证收益',
           body: '这个方案保证收益。',
           hashtags: [],
@@ -175,8 +175,8 @@ describe('content rewrite service', () => {
       fetchImpl,
     });
 
-    expect(result.drafts.map((draft) => draft.platformId)).toEqual(['wechat', 'douyin']);
-    expect(result.drafts.find((draft) => draft.platformId === 'douyin')?.body).toContain(
+    expect(result.drafts.map((draft) => draft.platformId)).toEqual(['wechat', 'threads']);
+    expect(result.drafts.find((draft) => draft.platformId === 'threads')?.body).toContain(
       '在符合条件时可能带来收益',
     );
   });

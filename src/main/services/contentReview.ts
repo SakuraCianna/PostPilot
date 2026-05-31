@@ -163,6 +163,7 @@ async function callDeepSeekReview(
               displayName: adapter.displayName,
               tone: adapter.tone,
               limits: adapter.limits,
+              styleGuide: adapter.styleGuide,
             })),
           }),
         },

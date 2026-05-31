@@ -9,14 +9,8 @@ describe('platform account schemas', () => {
   it('defines account fields for every supported platform', () => {
     expect(Object.keys(PLATFORM_ACCOUNT_SCHEMAS)).toEqual([
       'wechat',
-      'zhihu',
       'bilibili',
-      'xiaohongshu',
       'douyin',
-      'kuaishou',
-      'weibo',
-      'toutiao',
-      'baijiahao',
     ]);
   });
 
