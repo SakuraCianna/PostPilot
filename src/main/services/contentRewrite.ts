@@ -149,7 +149,7 @@ async function callDeepSeekRewrite(
             requiredShape: {
               drafts: [
                 {
-                  platformId: '平台标识',
+                  platformId: '内部平台 ID',
                   title: 'string',
                   summary: 'string',
                   body: 'string',

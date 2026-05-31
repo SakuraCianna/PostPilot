@@ -146,7 +146,7 @@ async function callDeepSeekReview(
               issues: [
                 {
                   kind: 'legal | values',
-                  platformId: '平台标识或 optional',
+                  platformId: '内部平台 ID 或 optional',
                   snippet: 'string',
                   reason: 'string',
                   suggestion: 'string',

@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   Check,
   Clipboard,
-  ExternalLink,
   FileText,
   History,
   Loader2,
@@ -27,7 +26,6 @@ import {
 } from '../shared/platformAdapters';
 import { createDraftPreviewHtml } from './previewMarkup';
 import {
-  type BuiltInPlatformId,
   type ContentReviewIssue,
   type ContentReviewStatus,
   type PlatformAccountConfig,
@@ -49,18 +47,6 @@ const DEMO_BODY = `很多创作者真正头疼的不是写不出内容, 而是�
 
 const NOTICE_TTL_MS = 3000;
 
-const PLATFORM_CONFIG_LINKS: Record<
-  BuiltInPlatformId,
-  Array<{ label: string; url: string }>
-> = {
-  wechat: [
-    { label: '创作后台', url: 'https://mp.weixin.qq.com/' },
-    { label: '公众号平台', url: 'https://mp.weixin.qq.com/' },
-  ],
-  bilibili: [{ label: '开放平台', url: 'https://openhome.bilibili.com/doc' }],
-  douyin: [{ label: '创作服务', url: 'https://creator.douyin.com/' }],
-};
-
 type AppView = 'editor' | 'results' | 'settings';
 type PublishProgress = PlatformId | 'all' | null;
 
@@ -79,7 +65,6 @@ export function App() {
   const [deletingPreset, setDeletingPreset] = useState<string | null>(null);
   const [accountConfigs, setAccountConfigs] = useState<PlatformAccountConfig[]>([]);
   const [newCustomPlatform, setNewCustomPlatform] = useState({
-    platformId: '',
     displayName: '',
   });
   const [notice, setNotice] = useState('');
@@ -387,18 +372,20 @@ export function App() {
   }
 
   async function handleCreateCustomPreset() {
-    const platformId = normalizeCustomPlatformId(newCustomPlatform.platformId);
     const displayName = newCustomPlatform.displayName.trim();
+    const platformId = createCustomPlatformId(displayName);
 
-    if (!displayName || !platformId) {
-      setNotice('请填写平台名称和平台标识');
+    if (!displayName) {
+      setNotice('请填写平台名称');
       return;
     }
     if (
       PLATFORM_ADAPTERS.some((adapter) => adapter.id === platformId) ||
-      accountConfigs.some((config) => config.platformId === platformId)
+      accountConfigs.some(
+        (config) => config.platformId === platformId || config.displayName === displayName,
+      )
     ) {
-      setNotice('平台标识已存在');
+      setNotice('平台预设已存在');
       return;
     }
 
@@ -415,7 +402,7 @@ export function App() {
         displayName: saved.displayName,
       });
       await refreshAccountConfigs();
-      setNewCustomPlatform({ platformId: '', displayName: '' });
+      setNewCustomPlatform({ displayName: '' });
       setNotice(`${saved.displayName} 预设已创建, ${preset.message}`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '创建平台预设失败');
@@ -442,11 +429,12 @@ export function App() {
   }
 
   async function handleDeleteCustomPreset(platformId: string) {
+    const target = accountConfigs.find((config) => config.platformId === platformId);
     setDeletingPreset(platformId);
     try {
       const configs = await window.postPilot.deleteAccountConfig(platformId);
       setAccountConfigs(configs);
-      setNotice(`${getPlatformName(platformId)} 预设已删除`);
+      setNotice(`${target?.displayName ?? getPlatformName(platformId)} 预设已删除`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '删除平台预设失败');
     } finally {
@@ -459,6 +447,7 @@ export function App() {
       setCurrentView(currentSession ? 'results' : 'editor');
       return;
     }
+    void refreshAccountConfigs();
     setCurrentView('settings');
   }
 
@@ -760,25 +749,15 @@ export function App() {
         <section className="custom-platform-panel">
           <div>
             <strong>新增平台预设</strong>
-            <span>输入平台名称和标识后, 直接生成 Markdown 风格预设</span>
+            <span>输入平台名称后, 直接生成 Markdown 风格预设</span>
           </div>
           <input
-            placeholder="平台名称, 例如 小红书"
+            placeholder="平台名称"
             value={newCustomPlatform.displayName}
             onChange={(event) =>
               setNewCustomPlatform((current) => ({
                 ...current,
                 displayName: event.target.value,
-              }))
-            }
-          />
-          <input
-            placeholder="平台标识, 例如 xiaohongshu"
-            value={newCustomPlatform.platformId}
-            onChange={(event) =>
-              setNewCustomPlatform((current) => ({
-                ...current,
-                platformId: event.target.value,
               }))
             }
           />
@@ -801,16 +780,6 @@ export function App() {
                     <div className="preset-title-row">
                       <h3>{adapter.displayName}</h3>
                       <span className="preset-badge">内置</span>
-                    </div>
-                    <div className="preset-links">
-                      {(PLATFORM_CONFIG_LINKS[adapter.id as BuiltInPlatformId] ?? []).map(
-                        (link) => (
-                          <a key={link.url} href={link.url} rel="noreferrer" target="_blank">
-                            {link.label}
-                            <ExternalLink size={12} />
-                          </a>
-                        ),
-                      )}
                     </div>
                   </div>
                   <span className="preset-state enabled">已启用</span>
@@ -840,7 +809,6 @@ export function App() {
                         <h3>{config.displayName}</h3>
                         <span className="preset-badge">自定义</span>
                       </div>
-                      <p className="preset-id">{config.platformId}</p>
                     </div>
                     <span className={`preset-state ${config.enabled ? 'enabled' : 'disabled'}`}>
                       {config.enabled ? '已启用' : '已停用'}
@@ -872,7 +840,7 @@ export function App() {
               ))}
             </div>
           ) : (
-            <div className="preset-empty">还没有自定义平台预设, 可以添加小红书进行 demo。</div>
+            <div className="preset-empty">还没有自定义平台预设, 输入平台名称即可生成。</div>
           )}
         </section>
       </section>
@@ -961,12 +929,23 @@ function getPlatformName(
   return adapters.find((adapter) => adapter.id === platformId)?.displayName ?? platformId;
 }
 
-function normalizeCustomPlatformId(value: string): string {
-  return value
+function createCustomPlatformId(displayName: string): string {
+  const normalized = displayName
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9_-]/g, '');
+
+  if (normalized) {
+    return normalized;
+  }
+
+  const encoded = Array.from(displayName.trim())
+    .map((char) => char.codePointAt(0)?.toString(36))
+    .filter(Boolean)
+    .join('-');
+
+  return encoded ? `platform-${encoded}` : '';
 }
 
 function getContentReviewStatusText(status?: ContentReviewStatus): string {
