@@ -46,7 +46,7 @@ describe('platform adapters', () => {
           enabled: true,
           configured: true,
           status: 'configured',
-          statusMessage: '账号配置已保存',
+          statusMessage: '平台预设已保存',
           maskedFields: {},
         },
       ],

@@ -120,10 +120,8 @@ button:disabled {
 .primary-button,
 .result-toolbar button,
 .empty-results button,
-.account-actions button,
-.custom-platform-panel button,
-.custom-config-heading button,
-.custom-config-row button {
+.preset-actions button,
+.custom-platform-panel button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -988,9 +986,7 @@ button:disabled {
   line-height: 1.4;
 }
 
-.custom-platform-panel input,
-.field input,
-.custom-config-row input {
+.custom-platform-panel input {
   min-width: 0;
   min-height: 40px;
   border: 1px solid var(--border);
@@ -1010,24 +1006,88 @@ button:disabled {
   white-space: nowrap;
 }
 
-.settings-grid {
+.preset-location-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--soft);
+  padding: 12px 14px;
+}
+
+.preset-location-card div {
   display: grid;
-  align-items: start;
-  grid-template-columns: repeat(2, minmax(340px, 1fr));
+  gap: 4px;
+}
+
+.preset-location-card strong {
+  color: var(--black);
+  font-size: 14px;
+}
+
+.preset-location-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.preset-location-card code {
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--black);
+  padding: 2px 5px;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
+}
+
+.preset-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.preset-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.preset-section-heading h2 {
+  margin: 0;
+  color: var(--black);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.preset-section-heading span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
   gap: 14px;
 }
 
-.account-card {
+.preset-card {
   display: flex;
   flex-direction: column;
-  min-height: max-content;
+  min-height: 190px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--white);
   padding: 16px;
 }
 
-.account-heading {
+.preset-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1035,28 +1095,28 @@ button:disabled {
   margin-bottom: 12px;
 }
 
-.account-title-row {
+.preset-title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
-.account-title-row h2 {
+.preset-title-row h3 {
   margin: 0;
   color: var(--black);
   font-size: 16px;
   letter-spacing: 0;
 }
 
-.account-doc-links {
+.preset-links {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.account-doc-links a {
+.preset-links a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1069,12 +1129,12 @@ button:disabled {
   text-decoration: none;
 }
 
-.account-doc-links a:hover {
+.preset-links a:hover {
   background: var(--black);
   color: var(--white);
 }
 
-.custom-platform-badge {
+.preset-badge {
   border-radius: 999px;
   background: var(--soft);
   color: var(--muted);
@@ -1083,171 +1143,80 @@ button:disabled {
   font-weight: 750;
 }
 
-.account-toggle {
+.preset-state {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  color: var(--danger);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.account-toggle input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-
-.account-toggle > span {
-  position: relative;
-  display: inline-flex;
-  width: 42px;
-  height: 24px;
   border-radius: 999px;
-  background: #f3c4c0;
-  box-shadow: inset 0 0 0 1px #ef9f99;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.account-toggle > span::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--white);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
-  content: "";
-  transition: transform 140ms ease;
-}
-
-.account-toggle input:checked + span {
-  background: #b6dbc2;
-  box-shadow: inset 0 0 0 1px #78bd8b;
-}
-
-.account-toggle input:checked + span::after {
-  transform: translateX(18px);
-}
-
-.account-toggle input:checked ~ strong {
+.preset-state.enabled {
+  background: var(--success-soft);
   color: var(--success);
 }
 
-.account-state {
-  margin: 0 0 10px;
+.preset-state.disabled {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.preset-id,
+.preset-tone {
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
+  line-height: 1.5;
 }
 
-.account-state.authorized,
-.account-state.configured {
-  color: var(--success);
+.preset-tone {
+  color: #3f3f3f;
+  font-size: 13px;
 }
 
-.account-state.auth-failed {
-  color: var(--danger);
-}
-
-.account-saved-fields {
-  display: flex;
-  flex-wrap: wrap;
+.preset-meta {
+  display: grid;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 
-.account-saved-fields span {
-  max-width: 100%;
+.preset-meta span {
   overflow: hidden;
-  border-radius: 999px;
-  background: var(--soft);
-  color: #3d3d3d;
-  padding: 5px 8px;
+  color: var(--muted);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.account-fields {
-  display: grid;
-  gap: 12px;
-}
-
-.field {
-  display: grid;
-  gap: 7px;
-}
-
-.field span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.custom-config-section {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-}
-
-.custom-config-heading {
+.preset-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.custom-config-heading span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 750;
-}
-
-.custom-config-heading button,
-.custom-config-row button {
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-.custom-config-list {
-  display: grid;
-  gap: 8px;
-}
-
-.custom-config-row {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.9fr) minmax(160px, 1fr) 38px;
-  gap: 8px;
-}
-
-.custom-config-row button {
-  color: var(--danger);
-  padding: 0;
-}
-
-.custom-config-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.account-actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
 }
 
-.account-actions .danger-button {
-  color: var(--danger);
+.preset-actions button {
+  min-height: 36px;
   padding: 0 12px;
+  font-size: 13px;
+}
+
+.preset-actions .danger-button {
+  color: var(--danger);
+}
+
+.preset-empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .toast {
@@ -1288,7 +1257,7 @@ button:disabled {
 
   .results-page,
   .version-layout,
-  .settings-grid,
+  .preset-grid,
   .settings-summary,
   .custom-platform-panel {
     grid-template-columns: 1fr;

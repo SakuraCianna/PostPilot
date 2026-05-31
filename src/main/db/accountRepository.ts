@@ -132,7 +132,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
 
       const row = getRow(input.platformId);
       if (!row) {
-        throw new Error('保存账号配置后读取失败');
+        throw new Error('保存平台预设后读取失败');
       }
       return mapRow(row);
     },
@@ -146,7 +146,7 @@ export function createAccountRepository(db: PostPilotDatabase, codec: SecretCode
 
       const row = getRow(result.platformId);
       if (!row) {
-        throw new Error('更新平台配置状态后读取失败');
+        throw new Error('更新平台预设状态后读取失败');
       }
       return mapRow(row);
     },
